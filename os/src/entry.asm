@@ -1,3 +1,5 @@
+# allocate stack space(64KB) and jump to our main function
+# note: if the program want to use stack, just 'sub sp, xxx'
     .section .text.entry
     .globl _start
 _start:
