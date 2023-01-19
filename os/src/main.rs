@@ -51,6 +51,8 @@ macro_rules! add {
 }
 
 fn welcome() {
+    // here we are "cheating" the compiler. We ask it to help us find functions.
+    // While in fact we treated these "functions" as values
     extern "C" {
         fn stext();     // begin addr of text segment
         fn etext();     // end addr of text segment
