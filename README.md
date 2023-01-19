@@ -1,4 +1,5 @@
 # rCore-Tutorial-v3
+rust真好玩。。
 rCore-Tutorial version 3.6. See the [Documentation in Chinese](https://rcore-os.github.io/rCore-Tutorial-Book-v3/).
 
 rCore-Tutorial API Docs.  See the [API Docs of Ten OSes ](#OS-API-DOCS)
