@@ -14,7 +14,7 @@
 #![feature(panic_info_message)]
 #![allow(unused)]
 
-use core::{arch::{global_asm, asm}, panic};
+use core::{arch::{global_asm, asm}, panic::{self, PanicInfo}};
 
 use crate::sbi::{console_putchar, console_getchar};
 use crate::console::print;
@@ -50,12 +50,7 @@ macro_rules! add {
     }
 }
 
-/// the rust entry-point of os, .org 0x80200000
-#[no_mangle]
-pub fn rust_main() -> ! {
-    unsafe{ asm!("li t0, 0x114","li t1, 0x514");};
-    clear_bss();
-
+fn welcome() {
     extern "C" {
         fn stext();     // begin addr of text segment
         fn etext();     // end addr of text segment
@@ -68,7 +63,6 @@ pub fn rust_main() -> ! {
         fn boot_stack_lower_bound(); // stack lower bound
         fn boot_stack_top(); // stack top
     }
-    clear_bss();
     console_putchar('\n' as usize);
     info!("memory layout:");
     info!("rust-sbi  [0x80000000, 0x80200000]");
@@ -80,7 +74,15 @@ pub fn rust_main() -> ! {
         boot_stack_lower_bound as usize, boot_stack_top as usize
     );
     info!(".bss      [{:#x}, {:#x})", sbss as usize, ebss as usize);
+}
 
+/// the rust entry-point of os, .org 0x80200000
+#[no_mangle]
+pub fn rust_main() -> ! {
+    unsafe{ asm!("li t0, 0x114","li t1, 0x514");};
+    clear_bss();
+    welcome();
+    // how to display line numbers, file names and function names?
     warn!("hello world");
     info!("hello world");
     debug!("hello world");
