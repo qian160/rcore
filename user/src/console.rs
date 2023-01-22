@@ -6,6 +6,7 @@ struct Stdout;
 const STDOUT: usize = 1;
 
 impl Write for Stdout {
+    // use syscall (note: os/src/console.rs uses sbi)
     fn write_str(&mut self, s: &str) -> fmt::Result {
         write(STDOUT, s.as_bytes());
         Ok(())

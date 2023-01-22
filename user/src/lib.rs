@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(linkage)]
+//#![feature(linkage)]
 #![feature(panic_info_message)]
 
 #[macro_use]
@@ -7,20 +7,24 @@ pub mod console;
 mod lang_items;
 mod syscall;
 
+// use user/src/bin/... 's main 
+extern {fn main() -> i32;}
+
 #[no_mangle]
 #[link_section = ".text.entry"]
+// BASE_ADDRESS = 0x80400000;
 pub extern "C" fn _start() -> ! {
     clear_bss();
-    exit(main());
+    unsafe {exit(main());}
     panic!("unreachable after sys_exit!");
 }
-
+/* 
 #[linkage = "weak"]
 #[no_mangle]
 fn main() -> i32 {
     panic!("Cannot find main!");
 }
-
+*/
 fn clear_bss() {
     extern "C" {
         fn start_bss();
