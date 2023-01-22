@@ -34,8 +34,8 @@ mod sync;
 pub mod syscall;
 pub mod trap;
 
-global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!("link_app.S"));
+global_asm!(include_str!("entry.asm"));     // 0x80200000
+global_asm!(include_str!("link_app.S"));    // 0x80400000
 
 /// clear BSS segment
 fn clear_bss() {

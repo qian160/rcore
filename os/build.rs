@@ -15,11 +15,17 @@ fn insert_app_data() -> Result<()> {
         .unwrap()
         .into_iter()
         .map(|dir_entry| {
+            // unwrap -> remove Ok
+            // dir_entry   = Ok(DirEntry("../user/src/bin/0xxx.rs"))
+            // file_name   = "0xxx.rs"
+            // into_string = Ok("0xxx.rs")
+            // after drain = "0xxx" (no .rs)
             let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
             name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
             name_with_ext
         })
         .collect();
+        //apps.iter().for_each(|s| println!(" --- {}", s));
     apps.sort();
 
     writeln!(
