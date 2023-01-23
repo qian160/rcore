@@ -53,8 +53,8 @@ fn clear_bss() {
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-    println!("[kernel] Hello, world!");
-    trap::init();
-    batch::init();
+    println!("[kernel] jump to rust-main!");
+    trap::init();           // set up stvec
+    batch::init();          // in fact just print some infomation about app
     batch::run_next_app();
 }

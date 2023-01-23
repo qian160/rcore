@@ -5,12 +5,18 @@ use crate::trap::TrapContext;
 use core::arch::asm;
 use lazy_static::*;
 
-const USER_STACK_SIZE: usize = 4096 * 2;
+const USER_STACK_SIZE: usize = 4096 * 2;    // 8KB
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
 const MAX_APP_NUM: usize = 16;
 const APP_BASE_ADDRESS: usize = 0x80400000;
 const APP_SIZE_LIMIT: usize = 0x20000;
 
+/*
+    for satety reason, we use 2 seperate stacks. If not so, a user program could easily
+    get kernel's information(like some addresses of kernel functions) after returning
+    from a trap, which is not so good. Also when a trap happens, a stack switch must be performed
+ */
+/// before a user program entering traps, normally its GPR's states will be saved to kernel stack
 #[repr(align(4096))]
 struct KernelStack {
     data: [u8; KERNEL_STACK_SIZE],
@@ -47,6 +53,9 @@ impl UserStack {
     }
 }
 
+/*  保存应用数量和各自的位置信息，以及当前执行到第几个应用了。
+    根据应用程序位置信息，初始化好应用所需内存空间，并加载应用执行*/
+
 struct AppManager {
     num_app: usize,
     current_app: usize,
@@ -65,7 +74,8 @@ impl AppManager {
             );
         }
     }
-
+    /// copy binary data from the compiled object file to the target address(0x80400000)
+    /// note: the os is compiled together with apps
     unsafe fn load_app(&self, app_id: usize) {
         if app_id >= self.num_app {
             println!("All applications completed!");
@@ -77,12 +87,16 @@ impl AppManager {
         asm!("fence.i");
         // clear app area
         core::slice::from_raw_parts_mut(APP_BASE_ADDRESS as *mut u8, APP_SIZE_LIMIT).fill(0);
+        // find the address of the target app in the binary file. A pointer is returned
         let app_src = core::slice::from_raw_parts(
             self.app_start[app_id] as *const u8,
             self.app_start[app_id + 1] - self.app_start[app_id],
         );
+        // the target address for loading the app
         let app_dst = core::slice::from_raw_parts_mut(APP_BASE_ADDRESS as *mut u8, app_src.len());
+        // copy source data to dest using that pointer
         app_dst.copy_from_slice(app_src);
+        // core::slice::from_raw_parts_mut(APP_BASE_ADDRESS as *mut u8, app_src.len()).copy_from_slice(app_src);
     }
 
     pub fn get_current_app(&self) -> usize {

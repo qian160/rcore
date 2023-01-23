@@ -10,13 +10,15 @@
     .globl __restore
     .align 2
 __alltraps:
+    # exchange sp and sscratch, this excellent inst switches stacks between kernel and user
     csrrw sp, sscratch, sp
     # now sp->kernel stack, sscratch->user stack
-    # allocate a TrapContext on kernel stack
+    # allocate a TrapContext on kernel stack. 34 registers need to be saved, each 8 Byte
     addi sp, sp, -34*8
     # save general-purpose registers
     sd x1, 1*8(sp)
     # skip sp(x2), we will save it later
+    # because user sp is saved in sscratch, and we have no spare reg to use now(to get it we have to use 'csrr rd, csr', no rd is avaliable)
     sd x3, 3*8(sp)
     # skip tp(x4), application does not use it
     # save x5~x31
@@ -36,11 +38,15 @@ __alltraps:
     # set input argument of trap_handler(cx: &mut TrapContext)
     mv a0, sp
     call trap_handler
-
+    # when trap_handler returns, it goes to execuate next inst, which is about __restore
 __restore:
     # case1: start running app by __restore
     # case2: back to U after handling trap
-    mv sp, a0
+    # in fact the 1st case is introdeced by us manully,
+    # in batch.rs, we find run_next_app have similar behavior with restore
+    # so we reuse the code here.
+    # as a small side-effort, a0 coild sometimes be the argument passed by run_next_app
+    mv sp, a0   # the side-effort of ...
     # now sp->kernel stack(after allocated), sscratch->user stack
     # restore sstatus/sepc
     ld t0, 32*8(sp)

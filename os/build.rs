@@ -6,7 +6,8 @@ fn main() {
     println!("cargo:rerun-if-changed={}", TARGET_PATH);
     insert_app_data().unwrap();
 }
-
+// generate link_app.S, which contains some data structures and binary file info
+// _num_app is an array, its first entry contains the length, then start, start, start..., end
 static TARGET_PATH: &str = "../user/target/riscv64gc-unknown-none-elf/release/";
 
 fn insert_app_data() -> Result<()> {
