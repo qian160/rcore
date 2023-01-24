@@ -43,3 +43,11 @@ pub fn write(fd: usize, buf: &[u8]) -> isize {
 pub fn exit(exit_code: i32) -> isize {
     sys_exit(exit_code)
 }
+
+pub fn trace() -> isize {
+    sys_trace()
+}
+
+pub fn taskid() -> isize {
+    sys_taskid()
+}

@@ -11,6 +11,7 @@ const MAX_APP_NUM: usize = 16;
 const APP_BASE_ADDRESS: usize = 0x80400000;
 const APP_SIZE_LIMIT: usize = 0x20000;
 
+// pay attention to the code in sys_exit 
 /*
     for satety reason, we use 2 seperate stacks. If not so, a user program could easily
     get kernel's information(like some addresses of kernel functions) after returning
@@ -64,9 +65,9 @@ struct AppManager {
 
 impl AppManager {
     pub fn print_app_info(&self) {
-        println!("[kernel] num_app = {}", self.num_app);
+        info!("[kernel] num_app = {}", self.num_app);
         for i in 0..self.num_app {
-            println!(
+            info!(
                 "[kernel] app_{} [{:#x}, {:#x})",
                 i,
                 self.app_start[i],
@@ -78,11 +79,11 @@ impl AppManager {
     /// note: the os is compiled together with apps
     unsafe fn load_app(&self, app_id: usize) {
         if app_id >= self.num_app {
-            println!("All applications completed!");
+            info!("All applications completed!");
             use crate::board::QEMUExit;
             crate::board::QEMU_EXIT_HANDLE.exit_success();
         }
-        println!("[kernel] Loading app_{}", app_id);
+        info!("[kernel] Loading app_{}", app_id);
         // clear icache
         asm!("fence.i");
         // clear app area
@@ -127,6 +128,11 @@ lazy_static! {
             }
         })
     };
+}
+
+/// sys_taskid
+pub fn taskid() -> usize{
+    APP_MANAGER.exclusive_access().current_app
 }
 
 /// init batch subsystem
