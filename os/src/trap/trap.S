@@ -40,14 +40,16 @@ __alltraps:
     call trap_handler
     # when trap_handler returns, it goes to execuate next inst, which is about __restore
 __restore:
-    # case1: start running app by __restore
+    # case1: start running app by __restore(set next running app's initial context)
     # case2: back to U after handling trap
     # in fact the 1st case is introdeced by us manully,
-    # in batch.rs, we find run_next_app have similar behavior with restore
+    # to run_next_app in batch mode, we need to 'set up its initial environment', and the code below could have some same functionalities
     # so we reuse the code here.
-    # as a small side-effort, a0 coild sometimes be the argument passed by run_next_app
-    mv sp, a0   # the side-effort of ...
-    # now sp->kernel stack(after allocated), sscratch->user stack
+    # as a small side-effort, a0 coild have multiple meaning here
+    # 1. returning value of trap_handler(still the old sp, so mv sp, a0 makes no effort)
+    # 2. manully called in run_next_app. In fact the initial context of the next running app
+    mv sp, a0   # 
+    # now sp->kernel stack(with target context), sscratch->user stack
     # restore sstatus/sepc
     ld t0, 32*8(sp)
     ld t1, 33*8(sp)

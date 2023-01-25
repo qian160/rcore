@@ -6,9 +6,9 @@ use crate::batch::taskid;
 /*
 risc-v stack frame:
 
--------------------- high
-    return address
-    prev fp
+-------------------- high (fp)
+*   return address
+*   prev fp
     saved registers
     local variables
     ...

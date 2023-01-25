@@ -4,12 +4,16 @@ use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use core::arch::asm;
 use lazy_static::*;
-
-const USER_STACK_SIZE: usize = 4096 * 2;    // 8KB
-const KERNEL_STACK_SIZE: usize = 4096 * 2;
-const MAX_APP_NUM: usize = 16;
-const APP_BASE_ADDRESS: usize = 0x80400000;
-const APP_SIZE_LIMIT: usize = 0x20000;
+///
+pub const USER_STACK_SIZE: usize = 4096 * 2;    // 8KB
+///
+pub const KERNEL_STACK_SIZE: usize = 4096 * 2;
+///
+pub const MAX_APP_NUM: usize = 16;
+///
+pub const APP_BASE_ADDRESS: usize = 0x80400000;
+///
+pub const APP_SIZE_LIMIT: usize = 0x20000;
 
 // pay attention to the code in sys_exit 
 /*
@@ -24,10 +28,12 @@ struct KernelStack {
 }
 
 #[repr(align(4096))]
+/// userstack
 struct UserStack {
     data: [u8; USER_STACK_SIZE],
 }
 
+/// these 2 stacks are different from the register sp
 static KERNEL_STACK: KernelStack = KernelStack {
     data: [0; KERNEL_STACK_SIZE],
 };
@@ -35,11 +41,17 @@ static USER_STACK: UserStack = UserStack {
     data: [0; USER_STACK_SIZE],
 };
 
+/// get userstack's sp. Note: user sp and the reg sp are different things
+pub fn get_user_sp() -> usize {
+    USER_STACK.get_sp()
+}
+
 impl KernelStack {
     fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + KERNEL_STACK_SIZE
     }
     pub fn push_context(&self, cx: TrapContext) -> &'static mut TrapContext {
+        // sub sp by a size_of context. And then fill it with the given argument
         let cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
         unsafe {
             *cx_ptr = cx;
@@ -49,7 +61,7 @@ impl KernelStack {
 }
 
 impl UserStack {
-    fn get_sp(&self) -> usize {
+    pub fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + USER_STACK_SIZE
     }
 }
