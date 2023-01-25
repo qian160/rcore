@@ -16,13 +16,14 @@ const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
 
 const SYSCALL_TRACE: usize   = 94; 
-const SYSCALL_TASKID: usize  = 95; 
 
 mod fs;
 mod process;
+pub mod util;
 
 use fs::*;
 use process::*;
+use util::*;
 
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
@@ -30,7 +31,6 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
         SYSCALL_TRACE => unsafe  {sys_trace()},
-        SYSCALL_TASKID => sys_taskid(),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GET_TIME => sys_get_time(),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),

@@ -1,3 +1,4 @@
+# allocate stack space(64KB) and jump to our main function
     .section .text.entry
     .globl _start
 _start:

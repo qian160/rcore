@@ -10,13 +10,15 @@
     .globl __restore
     .align 2
 __alltraps:
+    # exchange sp and sscratch, this excellent inst switches stacks between kernel and user
     csrrw sp, sscratch, sp
     # now sp->kernel stack, sscratch->user stack
-    # allocate a TrapContext on kernel stack
+    # allocate a TrapContext on kernel stack. 34 registers need to be saved, each 8 Byte
     addi sp, sp, -34*8
     # save general-purpose registers
     sd x1, 1*8(sp)
     # skip sp(x2), we will save it later
+    # because user sp is saved in sscratch, and we have no spare reg to use now(to get it we have to use 'csrr rd, csr', no rd is avaliable)
     sd x3, 3*8(sp)
     # skip tp(x4), application does not use it
     # save x5~x31
@@ -36,7 +38,8 @@ __alltraps:
     # set input argument of trap_handler(cx: &mut TrapContext)
     mv a0, sp
     call trap_handler
-
+    # note that pc will return here with return value a0.
+    # then we go execuating next inst, which is in __restore
 __restore:
     # now sp->kernel stack(after allocated), sscratch->user stack
     # restore sstatus/sepc
