@@ -17,7 +17,7 @@ const SYSCALL_TASKID: usize  = 95;
 
 mod fs;
 mod process;
-mod util;
+pub mod util;
 
 use fs::*;
 use process::*;

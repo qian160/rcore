@@ -34,6 +34,7 @@ struct UserStack {
 }
 
 /// these 2 stacks are different from the register sp
+/// if we directly save things using reg sp, it would be hard to manage and could be dangerous
 static KERNEL_STACK: KernelStack = KernelStack {
     data: [0; KERNEL_STACK_SIZE],
 };
