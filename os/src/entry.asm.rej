@@ -1,0 +1,7 @@
+diff a/os/src/entry.asm b/os/src/entry.asm	(rejected hunks)
+@@ -1,5 +1,3 @@
+-# allocate stack space(64KB) and jump to our main function
+-# note: if the program want to use stack, just 'sub sp, xxx'
+     .section .text.entry
+     .globl _start
+ _start:

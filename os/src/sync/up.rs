@@ -9,6 +9,13 @@ use core::cell::{RefCell, RefMut};
 ///
 /// In order to get mutable reference of inner data, call
 /// `exclusive_access`.
+
+// Why not just use static mut AppManager? the inner data could be muted easily that way
+// there are 2 reasons for not using that method:
+// 1. this introduces a mutable global variable, any write to it will be 
+//     considered unsafe be rust. So we will have to use lots of unsafe blocks
+// 2. the logic is not so good in fact. We just want to change its inner field, not
+//     the structure itself. If we declare with static mut, then the structure could be assigned to another one
 pub struct UPSafeCell<T> {
     /// inner data
     inner: RefCell<T>,

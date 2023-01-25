@@ -1,0 +1,10 @@
+diff a/os/Cargo.toml b/os/Cargo.toml	(rejected hunks)
+@@ -9,7 +9,7 @@ edition = "2021"
+ [dependencies]
+ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+ lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+-
++cfg-if = { version = "1.0.0" }
+ 
+ [profile.release]
+ debug = true

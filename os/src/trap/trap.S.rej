@@ -1,0 +1,39 @@
+diff a/os/src/trap/trap.S b/os/src/trap/trap.S	(rejected hunks)
+@@ -10,15 +10,13 @@
+     .globl __restore
+     .align 2
+ __alltraps:
+-    # exchange sp and sscratch, this excellent inst switches stacks between kernel and user
+     csrrw sp, sscratch, sp
+     # now sp->kernel stack, sscratch->user stack
+-    # allocate a TrapContext on kernel stack. 34 registers need to be saved, each 8 Byte
++    # allocate a TrapContext on kernel stack
+     addi sp, sp, -34*8
+     # save general-purpose registers
+     sd x1, 1*8(sp)
+     # skip sp(x2), we will save it later
+-    # because user sp is saved in sscratch, and we have no spare reg to use now(to get it we have to use 'csrr rd, csr', no rd is avaliable)
+     sd x3, 3*8(sp)
+     # skip tp(x4), application does not use it
+     # save x5~x31
+@@ -38,18 +36,9 @@ __alltraps:
+     # set input argument of trap_handler(cx: &mut TrapContext)
+     mv a0, sp
+     call trap_handler
+-    # when trap_handler returns, it goes to execuate next inst, which is about __restore
++
+ __restore:
+-    # case1: start running app by __restore(set next running app's initial context)
+-    # case2: back to U after handling trap
+-    # in fact the 1st case is introdeced by us manully,
+-    # to run_next_app in batch mode, we need to 'set up its initial environment', and the code below could have some same functionalities
+-    # so we reuse the code here.
+-    # as a small side-effort, a0 coild have multiple meaning here
+-    # 1. returning value of trap_handler(still the old sp, so mv sp, a0 makes no effort)
+-    # 2. manully called in run_next_app. In fact the initial context of the next running app
+-    mv sp, a0   # 
+-    # now sp->kernel stack(with target context), sscratch->user stack
++    # now sp->kernel stack(after allocated), sscratch->user stack
+     # restore sstatus/sepc
+     ld t0, 32*8(sp)
+     ld t1, 33*8(sp)
