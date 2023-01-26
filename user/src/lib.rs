@@ -45,3 +45,7 @@ pub fn yield_() -> isize {
 pub fn get_time() -> isize {
     sys_get_time()
 }
+
+pub fn get_time_ms() -> isize {
+    (sys_get_time() / 12500000 / 1000) as isize
+}

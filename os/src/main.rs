@@ -22,7 +22,7 @@
 #![feature(panic_info_message)]
 #![allow(unused)]
 
-use core::arch::global_asm;
+use core::{arch::global_asm, panic};
 
 #[path = "boards/qemu.rs"]
 mod board;
@@ -82,9 +82,17 @@ fn welcome() {
     info!(".stack    [{:#x}, {:#x})",
         boot_stack_lower_bound as usize, boot_stack_top as usize);
     info!(".bss      [{:#x}, {:#x})", sbss as usize, ebss as usize);
-    debug!("😄Hello world😄");
+    info!("😄Hello world😄");
+}
 
-
+fn init() {
+    // set stvec to __alltraps
+    trap::init();
+    // copy all apps' binary data to memory
+    loader::load_apps();
+    // set up sie
+    trap::enable_timer_interrupt();
+    timer::set_next_trigger();
 }
 
 /// the rust entry-point of os
@@ -92,10 +100,7 @@ fn welcome() {
 pub fn rust_main() -> ! {
     clear_bss();
     welcome();
-    trap::init();
-    loader::load_apps();
-    trap::enable_timer_interrupt();
-    timer::set_next_trigger();
+    init();
     task::run_first_task();
     panic!("Unreachable in rust_main!");
 }

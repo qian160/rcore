@@ -9,6 +9,8 @@
     .globl __alltraps
     .globl __restore
     .align 2
+    # save the current context to the kernel stack
+    # then call the handler
 __alltraps:
     # exchange sp and sscratch, this excellent inst switches stacks between kernel and user
     csrrw sp, sscratch, sp
@@ -40,6 +42,9 @@ __alltraps:
     call trap_handler
     # note that pc will return here with return value a0.
     # then we go execuating next inst, which is in __restore
+
+    # __restore's code is reused infact
+    # it can also be used for initialization
 __restore:
     # now sp->kernel stack(after allocated), sscratch->user stack
     # restore sstatus/sepc

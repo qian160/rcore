@@ -19,10 +19,10 @@ fn main() -> i32 {
         s[next] = s[cur] * p % m;
         cur = next;
         if i % 10000 == 0 {
-            println!("power_5 [{}/{}]", i, iter);
+            println!("[1]power_5 [{}/{}]", i, iter);
         }
     }
-    println!("{}^{} = {}(MOD {})", p, iter, s[cur], m);
-    println!("Test power_5 OK!");
+    println!("[1]{}^{} = {}(MOD {})", p, iter, s[cur], m);
+    println!("[1]Test power_5 OK!");
     0
 }

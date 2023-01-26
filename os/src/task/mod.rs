@@ -18,9 +18,11 @@ mod task;
 use crate::config::MAX_APP_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::timer::get_time_ms;
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
+use crate::syscall::{get_kcnt, get_ucnt};
 
 pub use context::TaskContext;
 
@@ -52,10 +54,12 @@ lazy_static! {
     /// Global variable: TASK_MANAGER
     pub static ref TASK_MANAGER: TaskManager = {
         let num_app = get_num_app();
+        // allocate spaces. fill all with 0 at first
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
         }; MAX_APP_NUM];
+        // assign
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
             task.task_status = TaskStatus::Ready;
@@ -72,6 +76,11 @@ lazy_static! {
     };
 }
 
+/// get current taskid, bug???
+pub fn get_current_taskid() -> usize {
+    TASK_MANAGER.inner.exclusive_access().current_task
+}
+
 impl TaskManager {
     /// Run the first task in task list.
     ///
@@ -84,6 +93,9 @@ impl TaskManager {
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
         drop(inner);
         let mut _unused = TaskContext::zero_init();
+        unsafe{
+            crate::syscall::LAST_ENTERING_TIME = get_time_ms();
+        }
         // before this, we should drop local variables that must be dropped manually
         unsafe {
             __switch(&mut _unused as *mut TaskContext, next_task_cx_ptr);
@@ -121,6 +133,7 @@ impl TaskManager {
     fn run_next_task(&self) {
         if let Some(next) = self.find_next_task() {
             let mut inner = self.inner.exclusive_access();
+            trace!("next task is {}", next);
             let current = inner.current_task;
             inner.tasks[next].task_status = TaskStatus::Running;
             inner.current_task = next;
@@ -133,11 +146,16 @@ impl TaskManager {
             }
             // go back to user mode
         } else {
-            println!("All applications completed!");
+            let mut total_cnt_k: usize= (0..MAX_APP_NUM).map(|i| get_kcnt(i)).sum();
+            let mut total_cnt_u: usize= (0..MAX_APP_NUM).map(|i| get_ucnt(i)).sum();
+            println!("");
+            debug!("All applications completed!");
+            debug!("total running time: {}ms(kernel), {}ms(user)", total_cnt_k, total_cnt_u);
             use crate::board::QEMUExit;
             crate::board::QEMU_EXIT_HANDLE.exit_success();
         }
     }
+    // go back to user mode
 }
 
 /// run first task
@@ -160,7 +178,7 @@ fn mark_current_exited() {
     TASK_MANAGER.mark_current_exited();
 }
 
-/// suspend current task, then run next task
+/// suspend current task, then run next task. used in timer interrupt and yield
 pub fn suspend_current_and_run_next() {
     mark_current_suspended();
     run_next_task();
@@ -170,4 +188,8 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+/// set current task's status, then run next task
+pub fn set_current_and_run_next(current: TaskStatus){
+
 }

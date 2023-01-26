@@ -4,7 +4,7 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
-
+#[allow(unused)]
 const SYSCALL_TRACE: usize   = 94; 
 
 
@@ -38,6 +38,7 @@ pub fn sys_get_time() -> isize {
     syscall(SYSCALL_GET_TIME, [0, 0, 0])
 }
 
+#[allow(unused)]
 pub fn sys_trace() -> isize {
     syscall(SYSCALL_TRACE, [0; 3])
 }
