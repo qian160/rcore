@@ -31,6 +31,26 @@ fn clear_bss() {
     });
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum TaskStatus {
+    UnInit,
+    Ready,
+    Running,
+    Exited,
+}
+
+#[derive(Debug)]
+pub struct TaskInfo {
+    pub id: usize,
+    pub status: TaskStatus,
+    /// 0 for kernel, 1 for user
+    pub times: (usize, usize)
+}
+
+pub fn init_task_info() -> TaskInfo {
+    TaskInfo { id: (0), status: (TaskStatus::UnInit), times: (0, 0) }
+}
+
 use syscall::*;
 
 pub fn write(fd: usize, buf: &[u8]) -> isize {
@@ -48,4 +68,8 @@ pub fn get_time() -> isize {
 
 pub fn get_time_ms() -> isize {
     (sys_get_time() / 12500000 / 1000) as isize
+}
+
+pub fn taskinfo(id: usize, info: *mut TaskInfo) -> isize {
+    sys_taskinfo(id, info)
 }

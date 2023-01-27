@@ -1,5 +1,6 @@
 //! none-standard syscall defined by myself
 use core::{arch::asm, ptr};
+use crate::{task::{TaskInfo, get_current_taskid, get_taskinfo}, config::MAX_APP_NUM};
 /*
 risc-v stack frame:
 
@@ -27,4 +28,19 @@ pub unsafe fn sys_trace() -> isize {
     }
     println!("\t\t== End stack trace ==");
     0
+}
+/// get the specified task's info
+pub fn sys_taskinfo(id: usize, info: *mut TaskInfo) -> isize{
+    if id < MAX_APP_NUM {
+        unsafe {
+            let temp = get_taskinfo(id);
+            (*info).id = temp.id;
+            (*info).status = temp.status;
+            (*info).times = temp.times;
+        }
+        0
+    }
+    else {
+        -1
+    }
 }

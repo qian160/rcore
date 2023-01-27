@@ -76,9 +76,25 @@ lazy_static! {
     };
 }
 
-/// get current taskid, bug???
+/// get current taskid. mostly used one
 pub fn get_current_taskid() -> usize {
     TASK_MANAGER.inner.exclusive_access().current_task
+}
+/// get the specified task's info
+pub fn get_taskinfo(id: usize) -> TaskInfo {
+    TaskInfo {
+        id: id,
+        status: TASK_MANAGER.inner.exclusive_access().tasks[id].task_status,
+        times: (get_ucnt(id), get_kcnt(id)),
+    }
+}
+
+#[allow(missing_docs)]
+pub struct TaskInfo {
+    pub id: usize,
+    pub status: TaskStatus,
+    /// 0 for kernel, 1 for user
+    pub times: (usize, usize)
 }
 
 impl TaskManager {

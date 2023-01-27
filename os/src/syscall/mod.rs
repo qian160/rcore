@@ -15,11 +15,12 @@ const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
 
-const SYSCALL_TRACE: usize   = 94; 
+const SYSCALL_TRACE: usize = 94; 
+const SYSCALL_TASKINFO: usize = 410; 
 
 use crate::config::MAX_APP_NUM;
 use crate::timer::get_time_ms;
-use crate::task::get_current_taskid;
+use crate::task::{get_current_taskid, TaskInfo};
 
 // use this to calculate u mode running time
 // must be initialized to app's boot time(before 1st app's running)
@@ -47,7 +48,7 @@ use process::*;
 use util::*;
 
 /// handle syscall exception with `syscall_id` and other arguments
-/// also count down the app's runtime in kernel
+/// also count app's runtime
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
     let time_at_start = get_time_ms();
     let taskid = get_current_taskid();
@@ -61,6 +62,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_TRACE => unsafe  {sys_trace()},
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GET_TIME => sys_get_time(),
+        SYSCALL_TASKINFO => sys_taskinfo(args[0], args[1] as *mut TaskInfo),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
     unsafe {

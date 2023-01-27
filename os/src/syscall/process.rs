@@ -7,7 +7,7 @@ use crate::syscall::{get_kcnt, get_ucnt};
 pub fn sys_exit(exit_code: i32) -> ! {
     let taskid = get_current_taskid();
     debug!("[kernel] Application{} exited with code {}", taskid, exit_code);
-    debug!("running time: {}ms(kernel), {}ms(user)", get_kcnt(taskid), get_ucnt(taskid));
+    debug!("running time: {}ms(user), {}ms(kernel)", get_ucnt(taskid), get_kcnt(taskid));
     exit_current_and_run_next();
     panic!("Unreachable in sys_exit!");
 }

@@ -1,11 +1,13 @@
 use core::arch::asm;
 
+use crate::TaskInfo;
 const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
 #[allow(unused)]
-const SYSCALL_TRACE: usize   = 94; 
+const SYSCALL_TRACE: usize = 94; 
+const SYSCALL_TASKINFO: usize = 410; 
 
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
@@ -41,4 +43,8 @@ pub fn sys_get_time() -> isize {
 #[allow(unused)]
 pub fn sys_trace() -> isize {
     syscall(SYSCALL_TRACE, [0; 3])
+}
+
+pub fn sys_taskinfo(id: usize, info: *mut TaskInfo) -> isize {
+    syscall(SYSCALL_TASKINFO, [id, info as usize, 0])
 }
