@@ -15,6 +15,6 @@ fn panic(info: &PanicInfo) -> ! {
         error!("[kernel] Panicked: {}", info.message().unwrap());
     }
     // add trace support
-    unsafe {crate::syscall::util::sys_trace();}
+    unsafe {crate::syscall::sys_trace();}
     shutdown()
 }

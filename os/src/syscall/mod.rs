@@ -20,8 +20,8 @@ const SYSCALL_TASKINFO: usize = 410;
 
 use crate::config::MAX_APP_NUM;
 use crate::timer::{get_time_ms, get_kcnt, get_ucnt, APP_RUNTIME_CNT};
-use crate::task::{get_current_taskid, TaskInfo};
-
+use crate::task::{get_current_taskid, TaskInfo, get_taskinfo};
+use core::{arch::asm, ptr};
 // use this to calculate u mode running time
 // must be initialized to app's boot time(before 1st app's running)
 /// last time when app entering the kernel
@@ -30,11 +30,9 @@ pub static mut LAST_ENTERING_TIME: usize = 0;
 
 mod fs;
 mod process;
-pub mod util;
 
 use fs::*;
 use process::*;
-use util::*;
 
 /// handle syscall exception with `syscall_id` and other arguments
 /// also count app's runtime
@@ -59,4 +57,50 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         APP_RUNTIME_CNT[taskid].1 += time_now - time_at_start;
     }
     ret
+}
+
+// none-standard syscall defined by myself
+
+/*
+risc-v stack frame:
+
+-------------------- high (fp)
+*   return address
+*   prev fp
+    saved registers
+    local variables
+    ...
+-------------------- low (sp)
+*/
+/// print stack frame
+pub unsafe fn sys_trace() -> isize {
+    let mut fp: *const usize;
+    asm!("mv {}, fp", out(reg) fp);
+
+    println!("\t\t== Begin stack trace ==");
+    while fp != ptr::null() {
+        let saved_ra = *fp.sub(1);
+        let saved_fp = *fp.sub(2);
+
+        println!("ra = 0x{:016x}, prev fp = 0x{:016x}", saved_ra, saved_fp);
+
+        fp = saved_fp as *const usize;
+    }
+    println!("\t\t== End stack trace ==");
+    0
+}
+/// get the specified task's info
+pub fn sys_taskinfo(id: usize, info: *mut TaskInfo) -> isize{
+    if id < MAX_APP_NUM {
+        unsafe {
+            let temp = get_taskinfo(id);
+            (*info).id = temp.id;
+            (*info).status = temp.status;
+            (*info).times = temp.times;
+        }
+        0
+    }
+    else {
+        -1
+    }
 }
