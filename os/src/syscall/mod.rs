@@ -19,7 +19,7 @@ const SYSCALL_TRACE: usize = 94;
 const SYSCALL_TASKINFO: usize = 410; 
 
 use crate::config::MAX_APP_NUM;
-use crate::timer::get_time_ms;
+use crate::timer::{get_time_ms, get_kcnt, get_ucnt, APP_RUNTIME_CNT};
 use crate::task::{get_current_taskid, TaskInfo};
 
 // use this to calculate u mode running time
@@ -27,17 +27,6 @@ use crate::task::{get_current_taskid, TaskInfo};
 /// last time when app entering the kernel
 /// note: this time - last time = running time in U mode
 pub static mut LAST_ENTERING_TIME: usize = 0;
-// 0 U, 1 K
-static mut APP_RUNTIME_CNT: [(usize, usize); MAX_APP_NUM] = [(0, 0); MAX_APP_NUM];
-
-/// read out the specified app's runtime in kernel space
-pub fn get_kcnt(id: usize) -> usize{
-    unsafe {APP_RUNTIME_CNT[id].1}
-}
-/// read out the specified app's runtime in user space
-pub fn get_ucnt(id: usize) -> usize {
-    unsafe {APP_RUNTIME_CNT[id].0}
-}
 
 mod fs;
 mod process;

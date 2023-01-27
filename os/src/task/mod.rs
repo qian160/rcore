@@ -18,12 +18,10 @@ mod task;
 use crate::config::MAX_APP_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
-use crate::timer::get_time_ms;
+use crate::timer::{get_time_ms, get_kcnt, get_ucnt};
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
-use crate::syscall::{get_kcnt, get_ucnt};
-
 pub use context::TaskContext;
 
 /// The task manager, where all the tasks are managed.
@@ -166,7 +164,7 @@ impl TaskManager {
             let mut total_cnt_u: usize= (0..MAX_APP_NUM).map(|i| get_ucnt(i)).sum();
             println!("");
             debug!("All applications completed!");
-            debug!("total running time: {}ms(kernel), {}ms(user)", total_cnt_k, total_cnt_u);
+            debug!("total running time: {}ms(user), {}ms(kernel)", total_cnt_u, total_cnt_k);
             use crate::board::QEMUExit;
             crate::board::QEMU_EXIT_HANDLE.exit_success();
         }
