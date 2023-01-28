@@ -9,12 +9,16 @@
     .globl __alltraps
     .globl __restore
     .align 2
+    # save the current context to the kernel stack
+    # then call the handler
 __alltraps:
+    # exchange sp and sscratch, this excellent inst switches stacks between kernel and user
     csrrw sp, sscratch, sp
     # now sp->*TrapContext in user space, sscratch->user stack
     # save other general purpose registers
     sd x1, 1*8(sp)
     # skip sp(x2), we will save it later
+    # because user sp is saved in sscratch, and we have no spare reg to use now(to get it we have to use 'csrr rd, csr', no rd is avaliable)
     sd x3, 3*8(sp)
     # skip tp(x4), application does not use it
     # save x5~x31
@@ -42,7 +46,8 @@ __alltraps:
     sfence.vma
     # jump to trap_handler
     jr t1
-
+    # __restore's code is reused infact
+    # it can also be used for initialization
 __restore:
     # a0: *TrapContext in user space(Constant); a1: user space token
     # switch to user space

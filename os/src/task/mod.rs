@@ -14,6 +14,7 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::timer::{get_time_ms, get_ucnt, get_kcnt};
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
@@ -51,9 +52,9 @@ struct TaskManagerInner {
 lazy_static! {
     /// a `TaskManager` global instance through lazy_static!
     pub static ref TASK_MANAGER: TaskManager = {
-        println!("init TASK_MANAGER");
+        info!("init TASK_MANAGER");
         let num_app = get_num_app();
-        println!("num_app = {}", num_app);
+        info!("num_app = {}", num_app);
         let mut tasks: Vec<TaskControlBlock> = Vec::new();
         for i in 0..num_app {
             tasks.push(TaskControlBlock::new(get_app_data(i), i));
@@ -70,6 +71,28 @@ lazy_static! {
     };
 }
 
+/// get current taskid. mostly used one
+pub fn get_current_taskid() -> usize {
+    TASK_MANAGER.inner.exclusive_access().current_task
+}
+/// get the specified task's info
+pub fn get_taskinfo(id: usize) -> TaskInfo {
+    TaskInfo {
+        id: id,
+        status: TASK_MANAGER.inner.exclusive_access().tasks[id].task_status,
+        times: (get_ucnt(id), get_kcnt(id)),
+    }
+}
+
+#[allow(missing_docs)]
+#[derive(Debug)]
+pub struct TaskInfo {
+    pub id: usize,
+    pub status: TaskStatus,
+    /// 0 for kernel, 1 for user
+    pub times: (usize, usize)
+}
+
 impl TaskManager {
     /// Run the first task in task list.
     ///
@@ -80,6 +103,9 @@ impl TaskManager {
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
+        unsafe{
+            crate::syscall::LAST_ENTERING_TIME = get_time_ms();
+        }
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -131,6 +157,7 @@ impl TaskManager {
     fn run_next_task(&self) {
         if let Some(next) = self.find_next_task() {
             let mut inner = self.inner.exclusive_access();
+            //debug!("next task is {}", next);
             let current = inner.current_task;
             inner.tasks[next].task_status = TaskStatus::Running;
             inner.current_task = next;
@@ -143,11 +170,23 @@ impl TaskManager {
             }
             // go back to user mode
         } else {
-            println!("All applications completed!");
+            statistic();
             use crate::board::QEMUExit;
             crate::board::QEMU_EXIT_HANDLE.exit_success();
         }
     }
+}
+
+fn statistic() {
+    let n = get_num_app();
+    let total_cnt_k: usize= (0..n).map(|i| get_kcnt(i)).sum();
+    let total_cnt_u: usize= (0..n).map(|i| get_ucnt(i)).sum();
+    println!("");
+    debug!("All applications completed!");
+    (0..n).for_each(|id| {
+        trace!(" {:?}", get_taskinfo(id));
+    });
+    debug!("total running time: {}ms(user), {}ms(kernel)", total_cnt_u, total_cnt_k);
 }
 
 /// Run the first task in task list.

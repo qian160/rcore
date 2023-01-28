@@ -30,5 +30,6 @@ __switch:
     .endr
     # restore kernel stack of next task
     ld sp, 8(a1)
+    # ra is changed to next task's ra
     ret
 

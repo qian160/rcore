@@ -16,5 +16,6 @@ fn panic(info: &PanicInfo) -> ! {
     } else {
         println!("[kernel] Panicked: {}", info.message().unwrap());
     }
+    unsafe {crate::syscall::sys_trace();}
     shutdown()
 }
