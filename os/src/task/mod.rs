@@ -14,10 +14,12 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::mm::vmprint;
 use crate::timer::{get_time_ms, get_ucnt, get_kcnt};
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
+use crate::mm::PageTable;
 use alloc::vec::Vec;
 use lazy_static::*;
 use switch::__switch;
@@ -51,12 +53,14 @@ struct TaskManagerInner {
 
 lazy_static! {
     /// a `TaskManager` global instance through lazy_static!
+    /// read data into task from elf file
     pub static ref TASK_MANAGER: TaskManager = {
-        info!("init TASK_MANAGER");
+        info!(" init TASK_MANAGER");
         let num_app = get_num_app();
-        info!("num_app = {}", num_app);
+        info!(" num_app = {}", num_app);
         let mut tasks: Vec<TaskControlBlock> = Vec::new();
         for i in 0..num_app {
+            // 
             tasks.push(TaskControlBlock::new(get_app_data(i), i));
         }
         TaskManager {
@@ -78,7 +82,7 @@ pub fn get_current_taskid() -> usize {
 /// get the specified task's info
 pub fn get_taskinfo(id: usize) -> TaskInfo {
     TaskInfo {
-        id: id,
+        id,
         status: TASK_MANAGER.inner.exclusive_access().tasks[id].task_status,
         times: (get_ucnt(id), get_kcnt(id)),
     }
@@ -100,17 +104,17 @@ impl TaskManager {
     /// But in ch4, we load apps statically, so the first task is a real app.
     fn run_first_task(&self) -> ! {
         let mut inner = self.inner.exclusive_access();
-        let next_task = &mut inner.tasks[0];
-        next_task.task_status = TaskStatus::Running;
-        let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
+        let first_task = &mut inner.tasks[0];
+        first_task.task_status = TaskStatus::Running;
+        let first_task_cx_ptr = &first_task.task_cx as *const TaskContext;
+        let mut _unused = TaskContext::zero_init();
         unsafe{
             crate::syscall::LAST_ENTERING_TIME = get_time_ms();
         }
-        drop(inner);
-        let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
+        drop(inner);
         unsafe {
-            __switch(&mut _unused as *mut _, next_task_cx_ptr);
+            __switch(&mut _unused as *mut _, first_task_cx_ptr);
         }
         panic!("unreachable in run_first_task!");
     }
@@ -191,6 +195,13 @@ fn statistic() {
 
 /// Run the first task in task list.
 pub fn run_first_task() {
+    // try to print first app's pagetable
+    info!(" first task's pagetable");
+    let inner = TASK_MANAGER.inner.exclusive_access();
+    let token = inner.tasks[0].get_user_token();
+    let pgtbl = PageTable::from_token(token);
+    vmprint(&pgtbl);
+    drop(inner);
     TASK_MANAGER.run_first_task();
 }
 

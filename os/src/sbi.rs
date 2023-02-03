@@ -1,4 +1,5 @@
 //! SBI call wrappers
+//! low-level services between os and hardware
 
 use core::arch::asm;
 

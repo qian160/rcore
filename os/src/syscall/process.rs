@@ -24,3 +24,9 @@ pub fn sys_yield() -> isize {
 pub fn sys_get_time() -> isize {
     get_time_ms() as isize
 }
+
+pub fn sys_fork() -> isize {
+    1
+}
+
+// to-do: sys_fork: tips: switch, tcb, memset copy

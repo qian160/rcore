@@ -9,6 +9,7 @@ pub fn get_num_app() -> usize {
 }
 
 /// get applications data
+/// core::slice::from_raw_parts(app_start[...], ...)
 pub fn get_app_data(app_id: usize) -> &'static [u8] {
     extern "C" {
         fn _num_app();

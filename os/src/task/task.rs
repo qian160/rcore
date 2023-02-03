@@ -1,34 +1,43 @@
 //! Types related to task management
 use super::TaskContext;
 use crate::config::{kernel_stack_position, TRAP_CONTEXT};
-use crate::mm::{MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
+use crate::mm::{MapPermission, MemorySet, KERNEL_SPACE, VirtAddr, PhysPageNum};
 use crate::trap::{trap_handler, TrapContext};
 
 /// task control block structure
+/// status, context, memory_set, context_ppn, 
 pub struct TaskControlBlock {
     pub task_status: TaskStatus,
     pub task_cx: TaskContext,
     pub memory_set: MemorySet,
-    pub trap_cx_ppn: PhysPageNum,
+    // trap_cx_ppn is a little redundant. we could also find that
+    // by looking up pagetable. here is just a space vs time tradeoff
+/**/pub trap_cx_ppn: PhysPageNum,
     pub base_size: usize,
 }
 
 impl TaskControlBlock {
     pub fn get_trap_cx(&self) -> &'static mut TrapContext {
+//        let trap_cx_vpn  = VirtAddr::from(TRAP_CONTEXT).into();
+//        let trap_cx_ppn = self.memory_set.translate(trap_cx_vpn).unwrap().ppn();
+//        trap_cx_ppn.get_mut()
         self.trap_cx_ppn.get_mut()
+
     }
+    /// root_ppn
     pub fn get_user_token(&self) -> usize {
         self.memory_set.token()
     }
+    /// set app data and id.
     pub fn new(elf_data: &[u8], app_id: usize) -> Self {
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
-        let trap_cx_ppn = memory_set
-            .translate(VirtAddr::from(TRAP_CONTEXT).into())
-            .unwrap()
-            .ppn();
+/* */   let trap_cx_ppn = memory_set
+/* */       .translate(VirtAddr::from(TRAP_CONTEXT).into())
+/* */       .unwrap()
+/* */       .ppn();
         let task_status = TaskStatus::Ready;
-        // map a kernel-stack in kernel space
+        // map a task's kernel-stack in kernel space
         let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(app_id);
         KERNEL_SPACE.exclusive_access().insert_framed_area(
             kernel_stack_bottom.into(),
@@ -39,7 +48,7 @@ impl TaskControlBlock {
             task_status,
             task_cx: TaskContext::goto_trap_return(kernel_stack_top),
             memory_set,
-            trap_cx_ppn,
+/* */       trap_cx_ppn,
             base_size: user_sp,
         };
         // prepare TrapContext in user space

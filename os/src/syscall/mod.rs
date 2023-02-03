@@ -10,18 +10,21 @@
 //! `sys_` then the name of the syscall. You can find functions like this in
 //! submodules, and you should also implement syscalls this way.
 
-const SYSCALL_WRITE: usize = 64;
-const SYSCALL_EXIT: usize = 93;
-const SYSCALL_YIELD: usize = 124;
-const SYSCALL_GET_TIME: usize = 169;
+const SYS_WRITE: usize = 64;
+const SYS_EXIT: usize = 93;
+const SYS_YIELD: usize = 124;
+const SYS_GET_TIME: usize = 169;
 
-const SYSCALL_TRACE: usize = 94; 
-const SYSCALL_TASKINFO: usize = 410; 
+const SYS_TRACE: usize = 94; 
+const SYS_TASKINFO: usize = 410;
+const SYS_MMAP: usize = 222;
+const SYS_MUNMAP: usize = 215;
+const  SYS_FORK: usize = 114;
 
 use crate::loader::get_num_app;
-//use crate::config::MAX_APP_NUM;
+use crate::mm::{MapPermission, PageTable};
 use crate::timer::{get_time_ms, APP_RUNTIME_CNT};
-use crate::task::{get_current_taskid, TaskInfo, get_taskinfo};
+use crate::task::{get_current_taskid, TaskInfo, get_taskinfo, current_user_token};
 use core::{arch::asm, ptr};
 // use this to calculate u mode running time
 // must be initialized to app's boot time(before 1st app's running)
@@ -45,12 +48,15 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         LAST_ENTERING_TIME = time_at_start;
     }
     let ret = match syscall_id {
-        SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
-        SYSCALL_EXIT => sys_exit(args[0] as i32),
-        SYSCALL_TRACE => unsafe  {sys_trace()},
-        SYSCALL_YIELD => sys_yield(),
-        SYSCALL_GET_TIME => sys_get_time(),
-        SYSCALL_TASKINFO => sys_taskinfo(args[0], args[1] as *mut TaskInfo),
+        SYS_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
+        SYS_EXIT => sys_exit(args[0] as i32),
+        SYS_TRACE => unsafe  {sys_trace()},
+        SYS_YIELD => sys_yield(),
+        SYS_GET_TIME => sys_get_time(),
+        SYS_TASKINFO => sys_taskinfo(args[0], args[1] as *mut TaskInfo),
+        SYS_MMAP => sys_mmap(args[0], args[1], args[2]),
+        SYS_MUNMAP => sys_munmap(args[0], args[1]),
+        SYS_FORK => sys_fork(),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
     unsafe {
@@ -90,7 +96,7 @@ pub unsafe fn sys_trace() -> isize {
     println!("\t\t== End stack trace ==");
     0
 }
-/// get the specified task's info
+/// get the specified task's info. need to be improved...
 pub fn sys_taskinfo(id: usize, info: *mut TaskInfo) -> isize{
     if id < get_num_app() {
         unsafe {
@@ -104,4 +110,25 @@ pub fn sys_taskinfo(id: usize, info: *mut TaskInfo) -> isize{
     else {
         -1
     }
+}
+
+/// 申请长度为 len 字节的物理内存，将其映射到 start 开始的虚存，内存页属性为 prot
+pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
+    assert!(prot <= 7);
+    let mut perm = MapPermission::empty();
+    if (prot & 1) == 1 {
+        perm |= MapPermission::R;
+    }
+    if (prot & 2) == 2 {
+        perm |= MapPermission::W;
+    }
+    if (prot & 4) == 4 {
+        perm |= MapPermission::X;
+    }
+    let _pgtbl = PageTable::from_token(current_user_token());
+    (start + len) as isize
+}
+/// 取消到 [start, start + len) 虚存的映射
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    (start + len) as isize
 }

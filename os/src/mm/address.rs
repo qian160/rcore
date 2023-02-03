@@ -1,32 +1,47 @@
 //! Implementation of physical and virtual address and page number.
 
+/// ----- some comments -----
+/// the name 'page number' is a little confusing...
+/// in fact, they do tell us information about "which page [that address] belongs to"
+/// for L0-pagetable, [that address] exactly refers to the data.
+/// but for L1 and L2, it refers to next-level's pagetables
+/// 
+/// about vpn:
+/// ppn is nature and easy to understand, since physicaly address is divided into pages
+/// but what about vpn? in fact when seeing a virtual address,
+/// we know that it must belongs to some physical page. the case here is abstraction.
+/// that is, a program should not be aware of the existance virtual memory
+/// for example, a program sees an address of 0x80600000, and thought its page number was 0x80600.
+/// however after translation it may be mapped to page 0x80400
+/// what we see is different from what we get, so we call it virtual (page number)
+
 use super::PageTableEntry;
 use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
 use core::fmt::{self, Debug, Formatter};
 
 /// physical address
-const PA_WIDTH_SV39: usize = 56;
-const VA_WIDTH_SV39: usize = 39;
-const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
-const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
+pub const PA_WIDTH_SV39: usize = 56;
+pub const VA_WIDTH_SV39: usize = 39;
+pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
+pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 
-/// Definitions
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+/// `56` bits (44 + 12)
 pub struct PhysAddr(pub usize);
 
-/// virtual address
+/// virtual address. `39` bits
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtAddr(pub usize);
 
-/// physical page number
+/// physical page number. `44` bits
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysPageNum(pub usize);
 
-/// virtual page number
+/// virtual page number. `27` bits consists of 3 `9-bit` indexes
+/// note: vpn doesn't figure out any information about  page numbers. 
+/// this is different from ppn. maybe that's why its called `virtual`?
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPageNum(pub usize);
-
-/// Debugging
 
 impl Debug for VirtAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -53,39 +68,54 @@ impl Debug for PhysPageNum {
 /// T -> usize: T.0
 /// usize -> T: usize.into()
 
+/// these functions below are all about just `getting the lower bits`...
+
 impl From<usize> for PhysAddr {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << PA_WIDTH_SV39) - 1))
+    /// returrn the lower `56` bits
+    fn from(va: usize) -> Self {
+        Self(va & ((1 << PA_WIDTH_SV39) - 1))
     }
 }
 impl From<usize> for PhysPageNum {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << PPN_WIDTH_SV39) - 1))
+    /// return the lower `44` bits
+    fn from(va: usize) -> Self {
+        Self(va & ((1 << PPN_WIDTH_SV39) - 1))
     }
 }
 impl From<usize> for VirtAddr {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << VA_WIDTH_SV39) - 1))
+    /// return the lower `39` bits
+    fn from(addr: usize) -> Self {
+        Self(addr & ((1 << VA_WIDTH_SV39) - 1))
     }
 }
 impl From<usize> for VirtPageNum {
+    /// return the lower `27` bits
     fn from(v: usize) -> Self {
         Self(v & ((1 << VPN_WIDTH_SV39) - 1))
     }
 }
 impl From<PhysAddr> for usize {
+    /// just get the struct's member
     fn from(v: PhysAddr) -> Self {
         v.0
     }
 }
 impl From<PhysPageNum> for usize {
+    /// just get the struct's member
     fn from(v: PhysPageNum) -> Self {
         v.0
     }
 }
+// this is required by the docs.
+/* SV39 分页模式规定 64 位虚拟地址的[63: 39]这 25 位必须和第 38 位相同，否则MMU会直接认定它是
+一个不合法的虚拟地址。通过这个检查之后 MMU再取出低39位尝试将其转化为一个 56 位的物理地址。*/
 impl From<VirtAddr> for usize {
+    /// va -> uszie. note: va must meet some requirments
     fn from(v: VirtAddr) -> Self {
         if v.0 >= (1 << (VA_WIDTH_SV39 - 1)) {
+            // 0000 1000...0        1 << 39. 39 0s after 1
+            // 0000 0111...1        - 1
+            // 1111 1000...0        neg
             v.0 | (!((1 << VA_WIDTH_SV39) - 1))
         } else {
             v.0
@@ -93,18 +123,21 @@ impl From<VirtAddr> for usize {
     }
 }
 impl From<VirtPageNum> for usize {
+    /// get struct's member
     fn from(v: VirtPageNum) -> Self {
         v.0
     }
 }
-
 impl VirtAddr {
+    /// tells which `vpn` that `va` belongs to. /4096
     pub fn floor(&self) -> VirtPageNum {
         VirtPageNum(self.0 / PAGE_SIZE)
     }
+    /// tells which `vpn` that `va` belongs to
     pub fn ceil(&self) -> VirtPageNum {
         VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
     }
+    /// low `12` bits
     pub fn page_offset(&self) -> usize {
         self.0 & (PAGE_SIZE - 1)
     }
@@ -113,48 +146,57 @@ impl VirtAddr {
     }
 }
 impl From<VirtAddr> for VirtPageNum {
+    /// tells which `vpn` that `va` belongs to
     fn from(v: VirtAddr) -> Self {
-        assert_eq!(v.page_offset(), 0);
+        //assert_eq!(v.page_offset(), 0);     // ???
         v.floor()
     }
 }
 impl From<VirtPageNum> for VirtAddr {
+    /// `left shift 12 bits`. the starting address of that page
     fn from(v: VirtPageNum) -> Self {
         Self(v.0 << PAGE_SIZE_BITS)
     }
 }
 impl PhysAddr {
+    /// tells which `ppn` that `pa` belongs to
     pub fn floor(&self) -> PhysPageNum {
         PhysPageNum(self.0 / PAGE_SIZE)
     }
+    /// tells which `ppn` that `pa` belongs to
     pub fn ceil(&self) -> PhysPageNum {
         PhysPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
     }
+    /// low `12` bits
     pub fn page_offset(&self) -> usize {
         self.0 & (PAGE_SIZE - 1)
     }
+    /// true if the address is page-aligned
     pub fn aligned(&self) -> bool {
         self.page_offset() == 0
     }
 }
 impl From<PhysAddr> for PhysPageNum {
+    /// tells which `ppn` that `pa` belongs to
     fn from(v: PhysAddr) -> Self {
-        assert_eq!(v.page_offset(), 0);
+        //assert_eq!(v.page_offset(), 0);   //  ???
         v.floor()
     }
 }
 impl From<PhysPageNum> for PhysAddr {
+    /// `left shift 12` bits. the starting address of that page
     fn from(v: PhysPageNum) -> Self {
         Self(v.0 << PAGE_SIZE_BITS)
     }
 }
 
 impl VirtPageNum {
+    /// get L2, L1, and L1 
     pub fn indexes(&self) -> [usize; 3] {
         let mut vpn = self.0;
         let mut idx = [0usize; 3];
         for i in (0..3).rev() {
-            idx[i] = vpn & 511;
+            idx[i] = vpn & 0b1_1111_1111;
             vpn >>= 9;
         }
         idx
@@ -162,14 +204,17 @@ impl VirtPageNum {
 }
 
 impl PhysPageNum {
+    /// given a ppn, return all the pte entries on that page
     pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
-        let pa: PhysAddr = (*self).into();
+        // left shif 12 bits. ppn -> pa
+        let pa: PhysAddr = (*self).into();  // into is the reverse operation of from
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, 512) }
     }
     pub fn get_bytes_array(&self) -> &'static mut [u8] {
         let pa: PhysAddr = (*self).into();
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, 4096) }
     }
+    /// return some type of pointer to that page
     pub fn get_mut<T>(&self) -> &'static mut T {
         let pa: PhysAddr = (*self).into();
         unsafe { (pa.0 as *mut T).as_mut().unwrap() }
@@ -180,13 +225,15 @@ pub trait StepByOne {
     fn step(&mut self);
 }
 impl StepByOne for VirtPageNum {
+    /// move to next page. `self.0 += 1`
+    /// (just increases the struct member)
     fn step(&mut self) {
         self.0 += 1;
     }
 }
 
 #[derive(Copy, Clone)]
-/// a simple range structure for type T
+/// a simple range structure for type T. 2 members: `l` and `r`
 pub struct SimpleRange<T>
 where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,
@@ -252,4 +299,5 @@ where
 }
 
 /// a simple range structure for virtual page number
+/// 描述一段虚拟页号的连续区间
 pub type VPNRange = SimpleRange<VirtPageNum>;

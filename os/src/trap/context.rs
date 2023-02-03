@@ -9,11 +9,11 @@ pub struct TrapContext {
     pub x: [usize; 32],
     /// CSR sstatus      
     pub sstatus: Sstatus,
-    /// CSR sepc
+    /// CSR sepc, sret's return address
     pub sepc: usize,
     /// Addr of Page Table
     pub kernel_satp: usize,
-    /// kernel stack
+    /// kernel stack. virtual addr
     pub kernel_sp: usize,
     /// Addr of trap_handler function
     pub trap_handler: usize,
