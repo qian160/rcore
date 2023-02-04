@@ -126,9 +126,7 @@ impl MemorySet {
     pub fn new_kernel() -> Self {
         let mut memory_set = Self::new_bare();
         // map trampoline
-        trace!(" new kernel1");
         memory_set.map_trampoline();
-        trace!(" new kernel2");
         memory_set.push(
             MapArea::new(
                 (stext as usize).into(),
@@ -138,7 +136,6 @@ impl MemorySet {
             ),
             None,
         );
-        trace!(" new kernel3");
         memory_set.push(
             MapArea::new(
                 (srodata as usize).into(),
