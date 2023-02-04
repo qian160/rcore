@@ -24,7 +24,7 @@ pub fn init_heap() {
         HEAP_ALLOCATOR
             .lock()
             .init(heap_start_addr, KERNEL_HEAP_SIZE);
-        debug!(" heap: [{:x}, {:x})", heap_start_addr, heap_start_addr + KERNEL_HEAP_SIZE);
+        debug!(" heap initialized! pa: [{:x}, {:x})", heap_start_addr, heap_start_addr + KERNEL_HEAP_SIZE);
     }
 }
 

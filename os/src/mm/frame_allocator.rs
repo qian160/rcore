@@ -123,6 +123,7 @@ pub fn init_frame_allocator() {
         first_page_number,
         last_page_number
     );
+    debug!(" frames collected!");
     debug!(" ekernel = {:x}, 1st ppn = {:x}, last ppn = {:x}. #pages = {:x} ({})", 
         ekernel as usize, first_page_number.0, last_page_number.0, n, n);
     //panic!("test");

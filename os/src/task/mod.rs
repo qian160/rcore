@@ -96,7 +96,9 @@ pub struct TaskInfo {
     pub id: usize,
     pub status: TaskStatus,
     /// 0 for kernel, 1 for user
-    pub times: (usize, usize)
+    pub times: (usize, usize),
+    //pub root_pagetable: usize,
+    //pub size: usize,
 }
 
 impl TaskManager {

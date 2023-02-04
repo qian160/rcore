@@ -135,7 +135,7 @@ pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
     let start_vpn = VirtPageNum::from(start).0;
     let end_vpn = VirtPageNum::from(start + len).0;
     for vpn in start_vpn..end_vpn{
-        if !current_task.memory_set.page_table.translate(vpn.into()).is_none(){
+        if !current_task.memory_set.page_table.translate(VirtPageNum(vpn)).is_none(){
             error!(" mmap failed. vpn: {:x} already mapped!", vpn);
             return -1;
         }
