@@ -114,11 +114,6 @@ impl MemorySet {
     /// Mention that trampoline is not collected by areas.
     /// set bits on the`TRAMPOLINE`'s pte.(ppn = strampoline/4096, flags = R | X)
     fn map_trampoline(&mut self) {
-        //let a = strampoline as usize;
-        //trace!(" {:x}", a);
-        //trace!(" {:x}", PhysAddr::from(a).0);
-        //trace!(" {:x}", PhysPageNum::from(a).0);
-        //trace!(" {:x}", PhysPageNum::from(PhysAddr::from(a)).0);
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
             // bug. usize -> 

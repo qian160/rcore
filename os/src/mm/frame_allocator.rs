@@ -82,7 +82,6 @@ impl FrameAllocator for StackFrameAllocator {
         // but in fact they hold some meaning of ppn
         else if self.current < self.end {
             self.current += 1;
-            //Some((self.current - 1).into())
             Some(PhysPageNum(self.current - 1))
         } else {
             None

@@ -131,14 +131,12 @@ pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
     }
     let current = get_current_taskid();
     let current_task = &mut TASK_MANAGER.inner.exclusive_access().tasks[current];
-    let start_va = VirtAddr::from(start);
-    let end_va = VirtAddr::from(start + len);
 
-    let start_vpn = VirtPageNum::from(start_va).0;
-    let end_vpn = VirtPageNum::from(end_va).0;
+    let start_vpn = VirtPageNum::from(start).0;
+    let end_vpn = VirtPageNum::from(start + len).0;
     for vpn in start_vpn..end_vpn{
         if !current_task.memory_set.page_table.translate(vpn.into()).is_none(){
-            error!(" mmap failed");
+            error!(" mmap failed. vpn: {:x} already mapped!", vpn);
             return -1;
         }
     }
@@ -163,26 +161,24 @@ pub fn sys_munmap(start: usize, len: usize) -> isize {
     // not implemented
     let current = get_current_taskid();
     let current_task = &mut TASK_MANAGER.inner.exclusive_access().tasks[current];
+    let pgtbl = &mut current_task.memory_set.page_table;
     // check unmapped area
-
-    let start_va = VirtAddr::from(start);
-    let end_va = VirtAddr::from(start + len);
-
-    let start_vpn = VirtPageNum::from(start_va).0;
-    let end_vpn = VirtPageNum::from(end_va).0;
-
-    trace!("start: {:x}", start);
-    trace!("start: {:x}", VirtAddr::from(start).0);
-    trace!("start: {:x}", VirtPageNum::from(start).0);
-    trace!("start: {:x}", VirtPageNum::from(VirtAddr::from(start)).0);
+    let mut start_vpn = VirtPageNum::from(start).0;
+    let end_vpn = VirtPageNum::from(start + len).0;
     for vpn in start_vpn..end_vpn{
-        if !current_task.memory_set.page_table.translate(vpn.into()).is_none(){
-            error!(" munmap failed");
+        if pgtbl.translate(vpn.into()).is_none(){
+            error!(" munmap failed. vpn: {:x} not mapped yet", vpn);
             return -1;
         }
-    }  
+    }
+    trace!(" try to unmap vpn: {:x}, len = {:x}", start_vpn, len);
     for area in &mut current_task.memory_set.areas{
-        debug!(" [{:x}, {:x}]", area.vpn_range.get_start().0, area.vpn_range.get_end().0);
+        //debug!(" [{:x}, {:x}]", area.vpn_range.get_start().0, area.vpn_range.get_end().0);
+        if area.vpn_range.contain(VirtPageNum(start_vpn)) {
+            area.unmap_one(pgtbl, VirtPageNum(start_vpn));
+            trace!(" vpn {:x} unmapped!", start_vpn);
+            start_vpn += 1;
+        }
     }
     0
 }

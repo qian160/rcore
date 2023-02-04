@@ -36,8 +36,10 @@ impl PageTableEntry {
     pub fn empty() -> Self {
         PageTableEntry { bits: 0 }
     }
+    /// pte -> ppn. usize -> ppn in fact
     pub fn ppn(&self) -> PhysPageNum {
-        (self.bits >> 10 & ((1usize << PPN_WIDTH_SV39) - 1)).into()
+        //(self.bits >> 10 & ((1usize << PPN_WIDTH_SV39) - 1)).into()
+        PhysPageNum(self.bits >> 10 & ((1usize << PPN_WIDTH_SV39) - 1))
     }
     pub fn flags(&self) -> PTEFlags {
         PTEFlags::from_bits(self.bits as u8).unwrap()
@@ -79,7 +81,6 @@ impl PageTable {
     fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
-        trace!(" ppn: {:x}...", ppn.0);
         let mut result: Option<&mut PageTableEntry> = None;
         for (i, idx) in idxs.iter().enumerate() {
             let pte = &mut ppn.get_pte_array()[*idx];
@@ -142,7 +143,8 @@ impl PageTable {
     /// 再调用它的`translate`方法查页表。
     pub fn from_token(satp: usize) -> Self {
         Self {
-            root_ppn: PhysPageNum::from(satp & ((1usize << PPN_WIDTH_SV39) - 1)),
+//            root_ppn: PhysPageNum::from(satp & ((1usize << PPN_WIDTH_SV39) - 1)),
+            root_ppn: PhysPageNum(satp & ((1usize << PPN_WIDTH_SV39) - 1)),
             frames: Vec::new(),
         }
     }

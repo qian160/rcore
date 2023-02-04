@@ -78,9 +78,8 @@ impl From<usize> for PhysAddr {
     }
 }
 impl From<usize> for PhysPageNum {
-    /// return the lower `44` bits
+    /// `usize` -> `pa`(56 bits) -> `ppn`(>>12)
     fn from(va: usize) -> Self {
-        //Self(va & ((1 << PPN_WIDTH_SV39) - 1))
         Self((va & ((1 << PA_WIDTH_SV39) - 1)) >> PAGE_SIZE_BITS)
     }
 }
@@ -91,7 +90,10 @@ impl From<usize> for VirtAddr {
     }
 }
 impl From<usize> for VirtPageNum {
-    /// just return the lower `27` bits...
+    /// `usize` -> `va`(39 bits) -> `vpn`(>>12)
+    /// note: the usize arg must be an `address`, not pagenumber
+    /// we could also use the struct's construction function like:
+    /// VirtPageNum::from(0x1000) === VirtPageNum(0x1)
     fn from(va: usize) -> Self {
         //Self(va & ((1 << VPN_WIDTH_SV39) - 1))
         Self((va & ((1 << VA_WIDTH_SV39) - 1)) >> PAGE_SIZE_BITS)
@@ -210,6 +212,7 @@ impl PhysPageNum {
     /// given a ppn, return all the pte entries on that page
     pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
         // left shif 12 bits. ppn -> pa
+        // trace!(" ppn: {:x}  pa: {:x}", (*self).0, PhysAddr::from(*self).0);
         let pa: PhysAddr = (*self).into();  // into is the reverse operation of from
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, 512) }
     }
