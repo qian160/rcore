@@ -23,6 +23,7 @@ use core::fmt::{self, Debug, Formatter};
 pub const PA_WIDTH_SV39: usize = 56;
 pub const VA_WIDTH_SV39: usize = 39;
 pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
+#[allow(unused)]
 pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -79,7 +80,8 @@ impl From<usize> for PhysAddr {
 impl From<usize> for PhysPageNum {
     /// return the lower `44` bits
     fn from(va: usize) -> Self {
-        Self(va & ((1 << PPN_WIDTH_SV39) - 1))
+        //Self(va & ((1 << PPN_WIDTH_SV39) - 1))
+        Self((va & ((1 << PA_WIDTH_SV39) - 1)) >> PAGE_SIZE_BITS)
     }
 }
 impl From<usize> for VirtAddr {
@@ -89,9 +91,10 @@ impl From<usize> for VirtAddr {
     }
 }
 impl From<usize> for VirtPageNum {
-    /// return the lower `27` bits
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << VPN_WIDTH_SV39) - 1))
+    /// just return the lower `27` bits...
+    fn from(va: usize) -> Self {
+        //Self(va & ((1 << VPN_WIDTH_SV39) - 1))
+        Self((va & ((1 << VA_WIDTH_SV39) - 1)) >> PAGE_SIZE_BITS)
     }
 }
 impl From<PhysAddr> for usize {
@@ -129,11 +132,11 @@ impl From<VirtPageNum> for usize {
     }
 }
 impl VirtAddr {
-    /// tells which `vpn` that `va` belongs to. /4096
+    // va -> vpn `0x100_001 -> 0x100`
     pub fn floor(&self) -> VirtPageNum {
         VirtPageNum(self.0 / PAGE_SIZE)
     }
-    /// tells which `vpn` that `va` belongs to
+    /// va -> vpn. `0x100_001 -> 0x101`
     pub fn ceil(&self) -> VirtPageNum {
         VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
     }
@@ -233,7 +236,7 @@ impl StepByOne for VirtPageNum {
 }
 
 #[derive(Copy, Clone)]
-/// a simple range structure for type T. 2 members: `l` and `r`
+/// a simple range structure for type T. [l, r)
 pub struct SimpleRange<T>
 where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,
@@ -254,6 +257,9 @@ where
     }
     pub fn get_end(&self) -> T {
         self.r
+    }
+    pub fn contain(&self, val: T) -> bool {
+        val >= self.l && val < self.r
     }
 }
 impl<T> IntoIterator for SimpleRange<T>

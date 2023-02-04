@@ -40,16 +40,18 @@ pub struct TaskManager {
     /// total number of tasks
     num_app: usize,
     /// use inner value to get mutable access
-    inner: UPSafeCell<TaskManagerInner>,
+    pub inner: UPSafeCell<TaskManagerInner>,
 }
 
 /// The task manager inner in 'UPSafeCell'
-struct TaskManagerInner {
+pub struct TaskManagerInner {
     /// task list
-    tasks: Vec<TaskControlBlock>,
+    pub tasks: Vec<TaskControlBlock>,
     /// id of current `Running` task
     current_task: usize,
 }
+
+//pub fn get_tcb_vec() -> &mut
 
 lazy_static! {
     /// a `TaskManager` global instance through lazy_static!
@@ -196,11 +198,12 @@ fn statistic() {
 /// Run the first task in task list.
 pub fn run_first_task() {
     // try to print first app's pagetable
-    info!(" first task's pagetable");
     let inner = TASK_MANAGER.inner.exclusive_access();
     let token = inner.tasks[0].get_user_token();
     let pgtbl = PageTable::from_token(token);
+    info!(" first task's pagetable");
     vmprint(&pgtbl);
+    // don't forget to drop inner
     drop(inner);
     TASK_MANAGER.run_first_task();
 }

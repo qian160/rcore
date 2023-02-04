@@ -34,3 +34,9 @@ pub fn yield_() -> isize {
 pub fn get_time() -> isize {
     sys_get_time()
 }
+pub fn mmap(start_va: usize, len: usize, perm: usize) -> isize {
+    sys_mmap(start_va, len, perm)
+}
+pub fn munmap(start_va: usize, len: usize) -> isize{
+    sys_munmap(start_va, len)
+}

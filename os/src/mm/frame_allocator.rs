@@ -78,9 +78,12 @@ impl FrameAllocator for StackFrameAllocator {
             Some(ppn.into())
         }
         // pick a new page. question:  `<=` or `<` ?
+        // note: current and end's types are both usize,
+        // but in fact they hold some meaning of ppn
         else if self.current < self.end {
             self.current += 1;
-            Some((self.current - 1).into())
+            //Some((self.current - 1).into())
+            Some(PhysPageNum(self.current - 1))
         } else {
             None
         }

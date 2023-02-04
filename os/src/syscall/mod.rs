@@ -19,12 +19,15 @@ const SYS_TRACE: usize = 94;
 const SYS_TASKINFO: usize = 410;
 const SYS_MMAP: usize = 222;
 const SYS_MUNMAP: usize = 215;
-const  SYS_FORK: usize = 114;
+const SYS_FORK: usize = 114;
 
-use crate::loader::get_num_app;
-use crate::mm::{MapPermission, PageTable};
+
+use crate::{loader::get_num_app, mm::VirtPageNum};
+#[allow(unused)]
+use crate::mm::{MapPermission, frame_alloc, PTEFlags, VirtAddr, PageTable};
 use crate::timer::{get_time_ms, APP_RUNTIME_CNT};
-use crate::task::{get_current_taskid, TaskInfo, get_taskinfo, current_user_token};
+#[allow(unused)]
+use crate::task::{get_current_taskid, TaskInfo, get_taskinfo, current_user_token, TASK_MANAGER};
 use core::{arch::asm, ptr};
 // use this to calculate u mode running time
 // must be initialized to app's boot time(before 1st app's running)
@@ -111,11 +114,12 @@ pub fn sys_taskinfo(id: usize, info: *mut TaskInfo) -> isize{
         -1
     }
 }
-
 /// 申请长度为 len 字节的物理内存，将其映射到 start 开始的虚存，内存页属性为 prot
 pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
-    assert!(prot <= 7);
-    let mut perm = MapPermission::empty();
+    assert!(prot > 0 && prot <= 7);
+    assert!(VirtAddr::from(start).aligned());
+    assert!(len > 0);
+    let mut perm = MapPermission::U;
     if (prot & 1) == 1 {
         perm |= MapPermission::R;
     }
@@ -125,10 +129,60 @@ pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
     if (prot & 4) == 4 {
         perm |= MapPermission::X;
     }
-    let _pgtbl = PageTable::from_token(current_user_token());
-    (start + len) as isize
+    let current = get_current_taskid();
+    let current_task = &mut TASK_MANAGER.inner.exclusive_access().tasks[current];
+    let start_va = VirtAddr::from(start);
+    let end_va = VirtAddr::from(start + len);
+
+    let start_vpn = VirtPageNum::from(start_va).0;
+    let end_vpn = VirtPageNum::from(end_va).0;
+    for vpn in start_vpn..end_vpn{
+        if !current_task.memory_set.page_table.translate(vpn.into()).is_none(){
+            error!(" mmap failed");
+            return -1;
+        }
+    }
+    current_task.memory_set.insert_framed_area(start.into(), (start+len).into(), perm);
+    len as isize
+    /* 
+    let flags = PTEFlags::from_bits(perm.bits()).unwrap();
+    let pgtbl = &mut current_task.memory_set.page_table;
+    let mut start_vpn = VirtAddr::from(start).floor();
+    let end_vpn = VirtAddr::from(start + len).floor();
+    while start_vpn <= end_vpn {
+        assert!(pgtbl.translate(start_vpn).is_none());
+        let frame = frame_alloc().unwrap();
+        debug!(" ppn = {:x}", frame.ppn.0);
+        pgtbl.map(start_vpn, frame.ppn, flags);
+        start_vpn.0 += 1;
+    }
+    */
 }
 /// 取消到 [start, start + len) 虚存的映射
 pub fn sys_munmap(start: usize, len: usize) -> isize {
-    (start + len) as isize
+    // not implemented
+    let current = get_current_taskid();
+    let current_task = &mut TASK_MANAGER.inner.exclusive_access().tasks[current];
+    // check unmapped area
+
+    let start_va = VirtAddr::from(start);
+    let end_va = VirtAddr::from(start + len);
+
+    let start_vpn = VirtPageNum::from(start_va).0;
+    let end_vpn = VirtPageNum::from(end_va).0;
+
+    trace!("start: {:x}", start);
+    trace!("start: {:x}", VirtAddr::from(start).0);
+    trace!("start: {:x}", VirtPageNum::from(start).0);
+    trace!("start: {:x}", VirtPageNum::from(VirtAddr::from(start)).0);
+    for vpn in start_vpn..end_vpn{
+        if !current_task.memory_set.page_table.translate(vpn.into()).is_none(){
+            error!(" munmap failed");
+            return -1;
+        }
+    }  
+    for area in &mut current_task.memory_set.areas{
+        debug!(" [{:x}, {:x}]", area.vpn_range.get_start().0, area.vpn_range.get_end().0);
+    }
+    0
 }

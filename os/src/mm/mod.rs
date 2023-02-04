@@ -24,5 +24,7 @@ pub use page_table::{PTEFlags, PageTable};
 pub fn init() {
     heap_allocator::init_heap();
     frame_allocator::init_frame_allocator();
+    trace!("1");
     KERNEL_SPACE.exclusive_access().activate();
+    trace!("1");
 }

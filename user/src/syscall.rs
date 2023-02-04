@@ -5,6 +5,9 @@ const SYS_EXIT: usize = 93;
 const SYS_YIELD: usize = 124;
 const SYS_GET_TIME: usize = 169;
 
+const SYS_MMAP: usize = 222;
+const SYS_MUNMAP: usize = 215;
+
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
     unsafe {
@@ -33,4 +36,11 @@ pub fn sys_yield() -> isize {
 
 pub fn sys_get_time() -> isize {
     syscall(SYS_GET_TIME, [0, 0, 0])
+}
+
+pub fn sys_mmap(start_va: usize, len: usize, perm: usize) -> isize {
+    syscall(SYS_MMAP, [start_va, len, perm])
+}
+pub fn sys_munmap(start_va: usize, len: usize) -> isize {
+    syscall(SYS_MUNMAP, [start_va, len, 0])
 }

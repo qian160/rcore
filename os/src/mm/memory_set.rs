@@ -69,10 +69,10 @@ pub struct MemorySet {
 /// 虚拟内存: the address space consists of virtual memory
 /// note: `only framed map need to be tracked`
 pub struct MapArea {
-    vpn_range: VPNRange,    // vpn's `left` and `right` bound
-    data_frames: BTreeMap<VirtPageNum, FrameTracker>,
-    map_type: MapType,
-    map_perm: MapPermission,
+    pub vpn_range: VPNRange,    // vpn's `left` and `right` bound
+    pub data_frames: BTreeMap<VirtPageNum, FrameTracker>,
+    pub map_type: MapType,
+    pub map_perm: MapPermission,
 }
 
 impl MemorySet {
@@ -89,7 +89,7 @@ impl MemorySet {
         self.page_table.token()
     }
     /// Assume that no conflicts.
-    /// pagetable will not be touched
+    /// pagetable will also be updated
     pub fn insert_framed_area(
         &mut self,
         start_va: VirtAddr,
@@ -114,8 +114,14 @@ impl MemorySet {
     /// Mention that trampoline is not collected by areas.
     /// set bits on the`TRAMPOLINE`'s pte.(ppn = strampoline/4096, flags = R | X)
     fn map_trampoline(&mut self) {
+        //let a = strampoline as usize;
+        //trace!(" {:x}", a);
+        //trace!(" {:x}", PhysAddr::from(a).0);
+        //trace!(" {:x}", PhysPageNum::from(a).0);
+        //trace!(" {:x}", PhysPageNum::from(PhysAddr::from(a)).0);
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
+            // bug. usize -> 
             PhysAddr::from(strampoline as usize).into(),
             PTEFlags::R | PTEFlags::X,
         );
@@ -125,7 +131,9 @@ impl MemorySet {
     pub fn new_kernel() -> Self {
         let mut memory_set = Self::new_bare();
         // map trampoline
+        trace!(" new kernel1");
         memory_set.map_trampoline();
+        trace!(" new kernel2");
         memory_set.push(
             MapArea::new(
                 (stext as usize).into(),
@@ -135,6 +143,7 @@ impl MemorySet {
             ),
             None,
         );
+        trace!(" new kernel3");
         memory_set.push(
             MapArea::new(
                 (srodata as usize).into(),
@@ -209,7 +218,7 @@ impl MemorySet {
         assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
         // program header
         let ph_count = elf_header.pt2.ph_count();
-        debug!(" #ph = {}", ph_count);
+//        debug!(" #ph = {}", ph_count);
         let mut max_end_vpn = VirtPageNum(0);
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
@@ -218,7 +227,7 @@ impl MemorySet {
                 let end_va: VirtAddr = ((ph.virtual_addr() + ph.mem_size()) as usize).into();
                 // note: vm is enabled now. so start and end address is not important
                 // they just serve like some kind of index in pagetable
-                debug!(" ph{} loaded: [{:x}, {:x})", i, start_va.0, end_va.0);
+//                debug!(" ph{} loaded: [{:x}, {:x})", i, start_va.0, end_va.0);
                 let mut map_perm = MapPermission::U;
                 let ph_flags = ph.flags();
                 if ph_flags.is_read() {
@@ -238,7 +247,7 @@ impl MemorySet {
                 );
             }
         }
-        println!("");
+//        println!("");
         // map user stack with U flags
         let max_end_va: VirtAddr = max_end_vpn.into();
         let mut user_stack_bottom: usize = max_end_va.into();

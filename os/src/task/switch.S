@@ -7,7 +7,6 @@
 .endm
     .section .text
     .globl __switch
-    # switch is done within kernel. no need to change pagetable. see trap_handler
 __switch:
     # __switch(
     #     a0: current_task_cx_ptr: *mut TaskContext,
