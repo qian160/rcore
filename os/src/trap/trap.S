@@ -9,12 +9,18 @@
     .globl __alltraps
     .globl __restore
     .align 2
+    # save the current context to the kernel stack
+    # then call the handler
 __alltraps:
+    # sscratch: trapframe
+    # exchange sp and sscratch, this inst switches stacks between kernel and user
+    # note: we use __restore to init apps. and sscratch is initialized  at that time
     csrrw sp, sscratch, sp
     # now sp->*TrapContext in user space, sscratch->user stack
     # save other general purpose registers
     sd x1, 1*8(sp)
     # skip sp(x2), we will save it later
+    # because user sp is saved in sscratch, and we have no spare reg to use now(to get it we have to use 'csrr rd, csr', no rd is avaliable)
     sd x3, 3*8(sp)
     # skip tp(x4), application does not use it
     # save x5~x31
@@ -41,13 +47,18 @@ __alltraps:
     csrw satp, t0
     sfence.vma
     # jump to trap_handler
+    # not call. because call uses an `base + offset` addressing mode
+    # here we can't get the correct offset
     jr t1
-
+    # __restore's code is reused infact
+    # it can also be used for initialization
 __restore:
-    # a0: *TrapContext in user space(Constant); a1: user space token
+    # a0: *TrapContext in user space(Constant, the page below trampoline);
+    # a1: user space token(satp)
     # switch to user space
     csrw satp, a1
     sfence.vma
+    # init value written here
     csrw sscratch, a0
     mv sp, a0
     # now sp points to TrapContext in user space, start restoring based on it

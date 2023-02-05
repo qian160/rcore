@@ -39,7 +39,8 @@ impl PageTableEntry {
     }
     ///Return 44bit ppn
     pub fn ppn(&self) -> PhysPageNum {
-        (self.bits >> 10 & ((1usize << 44) - 1)).into()
+//        (self.bits >> 10 & ((1usize << 44) - 1)).into()
+        PhysPageNum(self.bits >> 10 & ((1usize << 44) - 1))
     }
     ///Return 10bit flag
     pub fn flags(&self) -> PTEFlags {
@@ -80,7 +81,8 @@ impl PageTable {
     /// Temporarily used to get arguments from user space.
     pub fn from_token(satp: usize) -> Self {
         Self {
-            root_ppn: PhysPageNum::from(satp & ((1usize << 44) - 1)),
+//            root_ppn: PhysPageNum::from(satp & ((1usize << 44) - 1)),
+            root_ppn: PhysPageNum(satp & ((1usize << 44) - 1)),
             frames: Vec::new(),
         }
     }
@@ -96,6 +98,8 @@ impl PageTable {
             }
             if !pte.is_valid() {
                 let frame = frame_alloc().unwrap();
+                // note: only flag V is set. and i < 2 at this time.
+                // this means that the pte points to a lower level pagetable
                 *pte = PageTableEntry::new(frame.ppn, PTEFlags::V);
                 self.frames.push(frame);
             }
@@ -103,6 +107,8 @@ impl PageTable {
         }
         result
     }
+    /// 当找不到合法叶子节点的时候不会新建叶子节点,而是直接返回
+    /// None 即查找失败。因此，它不会尝试对页表本身进行修改
     fn find_pte(&self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;

@@ -5,7 +5,9 @@ use core::fmt::{self, Debug, Formatter};
 /// physical address
 const PA_WIDTH_SV39: usize = 56;
 const VA_WIDTH_SV39: usize = 39;
+#[allow(unused)]
 const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
+#[allow(unused)]
 const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 
 /// physical address
@@ -48,39 +50,63 @@ impl Debug for PhysPageNum {
 /// T -> usize: T.0
 /// usize -> T: usize.into()
 
+/// these functions below are all about just `getting the lower bits`...
+
 impl From<usize> for PhysAddr {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << PA_WIDTH_SV39) - 1))
+    /// returrn the lower `56` bits
+    fn from(va: usize) -> Self {
+        Self(va & ((1 << PA_WIDTH_SV39) - 1))
     }
 }
+// this usize -> ppn/vpn transform is not so good. if you want to modift, 
+// pay atten to the following functions:
+// 1. frame_allocator.rs: alloc(),
+// 2. pagetable.rs: ppn(), from_token()
 impl From<usize> for PhysPageNum {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << PPN_WIDTH_SV39) - 1))
+    /// `usize` -> `pa`(56 bits) -> `ppn`(>>12)
+    fn from(va: usize) -> Self {
+//        Self(va & ((1 << PA_WIDTH_SV39) - 1))
+        Self((va & ((1 << PA_WIDTH_SV39) - 1)) >> PAGE_SIZE_BITS)
     }
 }
 impl From<usize> for VirtAddr {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << VA_WIDTH_SV39) - 1))
+    /// return the lower `39` bits
+    fn from(addr: usize) -> Self {
+        Self(addr & ((1 << VA_WIDTH_SV39) - 1))
     }
 }
 impl From<usize> for VirtPageNum {
-    fn from(v: usize) -> Self {
-        Self(v & ((1 << VPN_WIDTH_SV39) - 1))
+    /// `usize` -> `va`(39 bits) -> `vpn`(>>12)
+    /// note: the usize arg must be an `address`, not pagenumber
+    /// we could also use the struct's construction function like:
+    /// VirtPageNum::from(0x1000) === VirtPageNum(0x1)
+    fn from(va: usize) -> Self {
+//        Self(va & ((1 << VPN_WIDTH_SV39) - 1))
+        Self((va & ((1 << VA_WIDTH_SV39) - 1)) >> PAGE_SIZE_BITS)
     }
 }
 impl From<PhysAddr> for usize {
+    /// just get the struct's member
     fn from(v: PhysAddr) -> Self {
         v.0
     }
 }
 impl From<PhysPageNum> for usize {
+    /// just get the struct's member
     fn from(v: PhysPageNum) -> Self {
         v.0
     }
 }
+// this is required by the docs.
+/* SV39 分页模式规定 64 位虚拟地址的[63: 39]这 25 位必须和第 38 位相同，否则MMU会直接认定它是
+一个不合法的虚拟地址。通过这个检查之后 MMU再取出低39位尝试将其转化为一个 56 位的物理地址。*/
 impl From<VirtAddr> for usize {
+    /// va -> uszie. note: va must meet some requirments
     fn from(v: VirtAddr) -> Self {
         if v.0 >= (1 << (VA_WIDTH_SV39 - 1)) {
+            // 0000 1000...0        1 << 39. 39 0s after 1
+            // 0000 0111...1        - 1
+            // 1111 1000...0        neg
             v.0 | (!((1 << VA_WIDTH_SV39) - 1))
         } else {
             v.0
@@ -193,13 +219,15 @@ pub trait StepByOne {
     fn step(&mut self);
 }
 impl StepByOne for VirtPageNum {
+    /// move to next page. `self.0 += 1`
+    /// (just increases the struct member)
     fn step(&mut self) {
         self.0 += 1;
     }
 }
 
 #[derive(Copy, Clone)]
-/// a simple range structure for type T
+/// a simple range structure for type T. [l, r)
 pub struct SimpleRange<T>
 where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,
@@ -220,6 +248,10 @@ where
     }
     pub fn get_end(&self) -> T {
         self.r
+    }
+    #[allow(unused)]
+    pub fn contain(&self, val: T) -> bool {
+        val >= self.l && val < self.r
     }
 }
 impl<T> IntoIterator for SimpleRange<T>

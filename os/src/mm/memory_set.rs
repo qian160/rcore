@@ -12,6 +12,22 @@ use core::arch::asm;
 use lazy_static::*;
 use riscv::register::satp;
 
+/*
+    [0x80000000, 0x80800000], size = 8MB. the entire physical address space: 
+    [0x80000000, ekernel]: os image
+    [ekernel, 0x80800000]: managed by kernel
+
+    our app's address spcae is divided into sections. each section 
+    describes a range and is called a `MapArea`
+
+    `token` means a legal satp value. maybe it should better change a name...
+
+    memory_set vs pagetable:
+        it seems that if we set pagetables correctly, then the program
+    could just run correctly. memory_set is not a must-need.
+        but the abstraction of memory_set is more user-friendly. it can 
+    make our life much easier
+*/
 extern "C" {
     fn stext();
     fn etext();
@@ -80,27 +96,21 @@ impl MemorySet {
         self.areas.push(map_area);
     }
     /// Mention that trampoline is not collected by areas.
+    /// set bits on the`TRAMPOLINE`'s pte.(ppn = strampoline/4096, flags = R | X)
     fn map_trampoline(&mut self) {
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
+            // bug. usize -> 
             PhysAddr::from(strampoline as usize).into(),
             PTEFlags::R | PTEFlags::X,
         );
     }
     /// Without kernel stacks.
+    /// kernel is identical map.
     pub fn new_kernel() -> Self {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
-        // map kernel sections
-        println!(".text [{:#x}, {:#x})", stext as usize, etext as usize);
-        println!(".rodata [{:#x}, {:#x})", srodata as usize, erodata as usize);
-        println!(".data [{:#x}, {:#x})", sdata as usize, edata as usize);
-        println!(
-            ".bss [{:#x}, {:#x})",
-            sbss_with_stack as usize, ebss as usize
-        );
-        println!("mapping .text section");
         memory_set.push(
             MapArea::new(
                 (stext as usize).into(),
@@ -110,7 +120,6 @@ impl MemorySet {
             ),
             None,
         );
-        println!("mapping .rodata section");
         memory_set.push(
             MapArea::new(
                 (srodata as usize).into(),
@@ -120,7 +129,6 @@ impl MemorySet {
             ),
             None,
         );
-        println!("mapping .data section");
         memory_set.push(
             MapArea::new(
                 (sdata as usize).into(),
@@ -130,7 +138,6 @@ impl MemorySet {
             ),
             None,
         );
-        println!("mapping .bss section");
         memory_set.push(
             MapArea::new(
                 (sbss_with_stack as usize).into(),
@@ -140,7 +147,6 @@ impl MemorySet {
             ),
             None,
         );
-        println!("mapping physical memory");
         memory_set.push(
             MapArea::new(
                 (ekernel as usize).into(),
@@ -150,7 +156,7 @@ impl MemorySet {
             ),
             None,
         );
-        println!("mapping memory-mapped registers");
+        // connect with sbi service
         for pair in MMIO {
             memory_set.push(
                 MapArea::new(
@@ -162,10 +168,21 @@ impl MemorySet {
                 None,
             );
         }
+        // entry = [0x80200000, 0x80201000)
+        debug!("address space layout:");
+        debug!(" .trampoline:     [{:x}, {:x})", strampoline as usize, strampoline as usize + 4096);
+        debug!(" .text:           [{:x}, {:x})", stext as usize, etext as usize);
+        debug!(" .rodata:         [{:x}, {:x})", srodata as usize, erodata as usize);
+        debug!(" .data:           [{:x}, {:x})", sdata as usize, edata as usize);
+        debug!(" .bss:            [{:x}, {:x})", sbss_with_stack as usize, ebss as usize);
+        debug!(" physical memory: [{:x}, {:x})", ekernel as usize, MEMORY_END as usize);
+        //debug!(" memory-mapped registers");
         memory_set
     }
     /// Include sections in elf and trampoline and TrapContext and user stack,
     /// also returns user_sp and entry point.
+    /// construct memory_set easily from an elf file.
+    /// note: pagetable is also constructed when an area is pushed into memory_set
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -175,13 +192,18 @@ impl MemorySet {
         let elf_header = elf.header;
         let magic = elf_header.pt1.magic;
         assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
+        // program header
         let ph_count = elf_header.pt2.ph_count();
+//        debug!(" #ph = {}", ph_count);
         let mut max_end_vpn = VirtPageNum(0);
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
             if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
                 let start_va: VirtAddr = (ph.virtual_addr() as usize).into();
                 let end_va: VirtAddr = ((ph.virtual_addr() + ph.mem_size()) as usize).into();
+                // note: vm is enabled now. so start and end address is not important
+                // they just serve like some kind of index in pagetable
+//                debug!(" ph{} loaded: [{:x}, {:x})", i, start_va.0, end_va.0);
                 let mut map_perm = MapPermission::U;
                 let ph_flags = ph.flags();
                 if ph_flags.is_read() {
@@ -201,6 +223,7 @@ impl MemorySet {
                 );
             }
         }
+//        println!("");
         // map user stack with U flags
         let max_end_va: VirtAddr = max_end_vpn.into();
         let mut user_stack_bottom: usize = max_end_va.into();
@@ -358,7 +381,12 @@ impl MapArea {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-/// map type for memory set: identical or framed
+/// map type for memory set: identical or framed.
+/// because our compiled kernel obj file's address is continous,
+/// to ensure that the instructions before and after MMU is enabled 
+/// could work correctly(note: their `va and pa are both continous`!), 
+/// we have to use an identical map.
+/// 即使切换了地址空间，指令仍应该能够被连续的执行。
 pub enum MapType {
     Identical,
     Framed,

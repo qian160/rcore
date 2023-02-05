@@ -18,7 +18,6 @@ const EXIT_RESET: u32 = 0x7777; // qemu reset
 
 pub trait QEMUExit {
     /// Exit with specified return code.
-    ///
     /// Note: For `X86`, code is binary-OR'ed with `0x1` inside QEMU.
     fn exit(&self, code: u32) -> !;
 

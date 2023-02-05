@@ -1,0 +1,30 @@
+diff a/os/src/sbi.rs b/os/src/sbi.rs	(rejected hunks)
+@@ -1,11 +1,12 @@
+ //! SBI call wrappers
++//! low-level services between os and hardware
+ 
+ use core::arch::asm;
+ 
+ const SBI_SET_TIMER: usize = 0;
+ const SBI_CONSOLE_PUTCHAR: usize = 1;
++const SBI_CONSOLE_GETCHAR: usize = 2;
+ 
+-// const SBI_CONSOLE_GETCHAR: usize = 2;
+ // const SBI_CLEAR_IPI: usize = 3;
+ // const SBI_SEND_IPI: usize = 4;
+ // const SBI_REMOTE_FENCE_I: usize = 5;
+@@ -40,10 +41,11 @@ pub fn console_putchar(c: usize) {
+     sbi_call(SBI_CONSOLE_PUTCHAR, c, 0, 0);
+ }
+ 
++#[allow(unused)]
+ /// use sbi call to getchar from console (qemu uart handler)
+-// pub fn console_getchar() -> usize {
+-//     sbi_call(SBI_CONSOLE_GETCHAR, 0, 0, 0)
+-// }
++pub fn console_getchar() -> usize {
++    sbi_call(SBI_CONSOLE_GETCHAR, 0, 0, 0)
++}
+ 
+ use crate::board::QEMUExit;
+ /// use sbi call to shutdown the kernel

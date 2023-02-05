@@ -3,7 +3,7 @@ use crate::config::KERNEL_HEAP_SIZE;
 use buddy_system_allocator::LockedHeap;
 
 #[global_allocator]
-/// heap allocator instance
+/// heap allocator instance. thanks to this we can use rust built-in ds now
 static HEAP_ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 #[alloc_error_handler]

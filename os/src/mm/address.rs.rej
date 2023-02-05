@@ -1,0 +1,171 @@
+diff a/os/src/mm/address.rs b/os/src/mm/address.rs	(rejected hunks)
+@@ -1,33 +1,49 @@
+ //! Implementation of physical and virtual address and page number.
+ 
++/// ----- some comments -----
++/// the name 'page number' is a little confusing...
++/// in fact, they do tell us information about "which page [that address] belongs to"
++/// for L0-pagetable, [that address] exactly refers to the data.
++/// but for L1 and L2, it refers to next-level's pagetables
++/// 
++/// about vpn:
++/// ppn is nature and easy to understand, since physicaly address is divided into pages
++/// but what about vpn? in fact when seeing a virtual address,
++/// we know that it must belongs to some physical page. the case here is abstraction.
++/// that is, a program should not be aware of the existance virtual memory
++/// for example, a program sees an address of 0x80600000, and thought its page number was 0x80600.
++/// however after translation it may be mapped to page 0x80400
++/// what we see is different from what we get, so we call it virtual (page number)
++
+ use super::PageTableEntry;
+ use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
+ use core::fmt::{self, Debug, Formatter};
+ 
+ /// physical address
+-const PA_WIDTH_SV39: usize = 56;
+-const VA_WIDTH_SV39: usize = 39;
+-const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
+-const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
++pub const PA_WIDTH_SV39: usize = 56;
++pub const VA_WIDTH_SV39: usize = 39;
++pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
++#[allow(unused)]
++pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
+ 
+-/// Definitions
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
++/// `56` bits (44 + 12)
+ pub struct PhysAddr(pub usize);
+ 
+-/// virtual address
++/// virtual address. `39` bits
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct VirtAddr(pub usize);
+ 
+-/// physical page number
++/// physical page number. `44` bits
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct PhysPageNum(pub usize);
+ 
+-/// virtual page number
++/// virtual page number. `27` bits consists of 3 `9-bit` indexes
++/// note: vpn doesn't figure out any information about  page numbers. 
++/// this is different from ppn. maybe that's why its called `virtual`?
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct VirtPageNum(pub usize);
+ 
+-/// Debugging
+-
+ impl Debug for VirtAddr {
+     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+         f.write_fmt(format_args!("VA:{:#x}", self.0))
+@@ -93,18 +128,21 @@ impl From<VirtAddr> for usize {
+     }
+ }
+ impl From<VirtPageNum> for usize {
++    /// get struct's member
+     fn from(v: VirtPageNum) -> Self {
+         v.0
+     }
+ }
+-
+ impl VirtAddr {
++    // va -> vpn `0x100_001 -> 0x100`
+     pub fn floor(&self) -> VirtPageNum {
+         VirtPageNum(self.0 / PAGE_SIZE)
+     }
++    /// va -> vpn. `0x100_001 -> 0x101`
+     pub fn ceil(&self) -> VirtPageNum {
+         VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
+     }
++    /// low `12` bits
+     pub fn page_offset(&self) -> usize {
+         self.0 & (PAGE_SIZE - 1)
+     }
+@@ -113,48 +151,57 @@ impl VirtAddr {
+     }
+ }
+ impl From<VirtAddr> for VirtPageNum {
++    /// tells which `vpn` that `va` belongs to
+     fn from(v: VirtAddr) -> Self {
+-        assert_eq!(v.page_offset(), 0);
++        //assert_eq!(v.page_offset(), 0);     // ???
+         v.floor()
+     }
+ }
+ impl From<VirtPageNum> for VirtAddr {
++    /// `left shift 12 bits`. the starting address of that page
+     fn from(v: VirtPageNum) -> Self {
+         Self(v.0 << PAGE_SIZE_BITS)
+     }
+ }
+ impl PhysAddr {
++    /// tells which `ppn` that `pa` belongs to
+     pub fn floor(&self) -> PhysPageNum {
+         PhysPageNum(self.0 / PAGE_SIZE)
+     }
++    /// tells which `ppn` that `pa` belongs to
+     pub fn ceil(&self) -> PhysPageNum {
+         PhysPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
+     }
++    /// low `12` bits
+     pub fn page_offset(&self) -> usize {
+         self.0 & (PAGE_SIZE - 1)
+     }
++    /// true if the address is page-aligned
+     pub fn aligned(&self) -> bool {
+         self.page_offset() == 0
+     }
+ }
+ impl From<PhysAddr> for PhysPageNum {
++    /// tells which `ppn` that `pa` belongs to
+     fn from(v: PhysAddr) -> Self {
+-        assert_eq!(v.page_offset(), 0);
++        //assert_eq!(v.page_offset(), 0);   //  ???
+         v.floor()
+     }
+ }
+ impl From<PhysPageNum> for PhysAddr {
++    /// `left shift 12` bits. the starting address of that page
+     fn from(v: PhysPageNum) -> Self {
+         Self(v.0 << PAGE_SIZE_BITS)
+     }
+ }
+ 
+ impl VirtPageNum {
++    /// get L2, L1, and L1 
+     pub fn indexes(&self) -> [usize; 3] {
+         let mut vpn = self.0;
+         let mut idx = [0usize; 3];
+         for i in (0..3).rev() {
+-            idx[i] = vpn & 511;
++            idx[i] = vpn & 0b1_1111_1111;
+             vpn >>= 9;
+         }
+         idx
+@@ -162,14 +209,18 @@ impl VirtPageNum {
+ }
+ 
+ impl PhysPageNum {
++    /// given a ppn, return all the pte entries on that page
+     pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
+-        let pa: PhysAddr = (*self).into();
++        // left shif 12 bits. ppn -> pa
++        // trace!(" ppn: {:x}  pa: {:x}", (*self).0, PhysAddr::from(*self).0);
++        let pa: PhysAddr = (*self).into();  // into is the reverse operation of from
+         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, 512) }
+     }
+     pub fn get_bytes_array(&self) -> &'static mut [u8] {
+         let pa: PhysAddr = (*self).into();
+         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, 4096) }
+     }
++    /// return some type of pointer to that page
+     pub fn get_mut<T>(&self) -> &'static mut T {
+         let pa: PhysAddr = (*self).into();
+         unsafe { (pa.0 as *mut T).as_mut().unwrap() }
+@@ -252,4 +308,5 @@ where
+ }
+ 
+ /// a simple range structure for virtual page number
++/// 描述一段虚拟页号的连续区间
+ pub type VPNRange = SimpleRange<VirtPageNum>;
