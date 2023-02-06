@@ -46,7 +46,16 @@ lazy_static! {
     pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> =
         Arc::new(unsafe { UPSafeCell::new(MemorySet::new_kernel()) });
 }
-/// memory set structure, controls virtual-memory space
+/// high-level structure, controls all the `virtual-memory space` of an app(or kernel).
+/// a `set`(collection) is consisted of many `areas`.
+/// 注意`PageTable`下挂着所有多级页表的节点所在的物理页帧，
+/// 而每个`MapArea`下则挂着对应逻辑段中的数据所在的物理页帧，
+/// 这两部分合在一起构成了一个地址空间所需的所有物理页帧
+/// note: memory_set is a higher level abstraction than pagetable.
+/// since pagetable is not so easy to deal with. with the help of 
+/// memory_set now, we are luckily that we don't need to deal with
+/// pagetable all the time. we just build app's memory_set, 
+/// and its pagetable will be built along the process
 pub struct MemorySet {
     page_table: PageTable,
     areas: Vec<MapArea>,
@@ -64,7 +73,7 @@ impl MemorySet {
     pub fn token(&self) -> usize {
         self.page_table.token()
     }
-    /// Assume that no conflicts.
+    /// pagetable will also be updated
     pub fn insert_framed_area(
         &mut self,
         start_va: VirtAddr,
@@ -88,6 +97,9 @@ impl MemorySet {
             self.areas.remove(idx);
         }
     }
+    /// 在当前地址空间插入一个新的逻辑段 map_area ，
+    /// 如果它是以 Framed 方式映射到物理内存，
+    /// 还可以可选地在那些被映射到的物理页帧上写入一些初始化数据 data
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         map_area.map(&mut self.page_table);
         if let Some(data) = data {
@@ -283,7 +295,7 @@ impl MemorySet {
             asm!("sfence.vma");
         }
     }
-    ///Translate throuth pagetable
+    /// VPN -> PTE
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
     }
@@ -293,15 +305,19 @@ impl MemorySet {
         self.areas.clear();
     }
 }
-/// map area structure, controls a contiguous piece of virtual memory
+/// describes `a contiguous piece of virtual memory`
+/// 描述`一段连续地址的虚拟内存`(逻辑段), 
+/// 虚拟内存: the address space consists of virtual memory
+/// note: `only framed map need to be tracked`
 pub struct MapArea {
-    vpn_range: VPNRange,
-    data_frames: BTreeMap<VirtPageNum, FrameTracker>,
-    map_type: MapType,
-    map_perm: MapPermission,
+    pub vpn_range: VPNRange,
+    pub data_frames: BTreeMap<VirtPageNum, FrameTracker>,
+    pub map_type: MapType,
+    pub map_perm: MapPermission,
 }
 
 impl MapArea {
+    /// [start, end)
     pub fn new(
         start_va: VirtAddr,
         end_va: VirtAddr,
@@ -325,6 +341,7 @@ impl MapArea {
             map_perm: another.map_perm,
         }
     }
+    /// add a `vpn-ppn` map to data_frames(if framed) and pagetable
     pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         let ppn: PhysPageNum;
         match self.map_type {
@@ -340,24 +357,29 @@ impl MapArea {
         let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
         page_table.map(vpn, ppn, pte_flags);
     }
+    /// remove that vpn's pte from pagetable and data_frame(if framed).
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         if self.map_type == MapType::Framed {
             self.data_frames.remove(&vpn);
         }
         page_table.unmap(vpn);
     }
+    /// add all the vpn in range to the pagetable and data_frame(if framed)
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
             self.map_one(page_table, vpn);
         }
     }
+    /// remove all the vpn in range from pagetable and data_frame(if framed)
     pub fn unmap(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
             self.unmap_one(page_table, vpn);
         }
     }
-    /// data: start-aligned but maybe with shorter length
-    /// assume that all frames were cleared before
+    /// 将切片`data`中的数据拷贝到当前逻辑段实际被内核放置在的各`物理页帧`上，
+    /// 从而在地址空间中通过该逻辑段就能访问这些数据。调用它的时候需要满足：
+    /// 1. 切片 data 中的数据大小不超过当前逻辑段的总大小，
+    /// 2. 切片中的数据会被对齐到逻辑段的`开头`，然后逐页拷贝到实际的物理页帧。
     pub fn copy_data(&mut self, page_table: &mut PageTable, data: &[u8]) {
         assert_eq!(self.map_type, MapType::Framed);
         let mut start: usize = 0;

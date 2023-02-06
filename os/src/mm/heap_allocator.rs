@@ -11,14 +11,18 @@ static HEAP_ALLOCATOR: LockedHeap = LockedHeap::empty();
 pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
     panic!("Heap allocation error, layout = {:?}", layout);
 }
+
 /// heap space ([u8; KERNEL_HEAP_SIZE])
+/// note: this is a global variable, and located in section .bss
 static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
 /// initiate heap allocator
 pub fn init_heap() {
     unsafe {
+        let heap_start_addr = HEAP_SPACE.as_ptr() as usize;
         HEAP_ALLOCATOR
             .lock()
-            .init(HEAP_SPACE.as_ptr() as usize, KERNEL_HEAP_SIZE);
+            .init(heap_start_addr, KERNEL_HEAP_SIZE);
+        debug!(" heap initialized! pa: [{:x}, {:x})", heap_start_addr, heap_start_addr + KERNEL_HEAP_SIZE);
     }
 }
 

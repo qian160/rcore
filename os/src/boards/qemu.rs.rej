@@ -1,9 +1,0 @@
-diff a/os/src/boards/qemu.rs b/os/src/boards/qemu.rs	(rejected hunks)
-@@ -2,6 +2,7 @@
- 
- pub const CLOCK_FREQ: usize = 12500000;
- 
-+/// (start, length)
- pub const MMIO: &[(usize, usize)] = &[
-     (0x0010_0000, 0x00_2000), // VIRT_TEST/RTC  in virt machine
- ];

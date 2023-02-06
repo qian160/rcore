@@ -18,6 +18,8 @@ pub struct TaskControlBlock {
 }
 
 pub struct TaskControlBlockInner {
+    // trap_cx_ppn is a little redundant. we could also find that
+    // by looking up pagetable. here is just a space vs time tradeoff
     pub trap_cx_ppn: PhysPageNum,
     pub base_size: usize,
     pub task_cx: TaskContext,
@@ -168,4 +170,11 @@ pub enum TaskStatus {
     Ready,
     Running,
     Zombie,
+}
+
+#[allow(missing_docs)]
+#[derive(Debug)]
+pub struct TaskInfo {
+    pub root_pagetable: usize,
+    pub size: usize,
 }

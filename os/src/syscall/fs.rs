@@ -5,7 +5,7 @@ use crate::task::{current_user_token, suspend_current_and_run_next};
 
 const FD_STDIN: usize = 0;
 const FD_STDOUT: usize = 1;
-
+// buf should be va now
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     match fd {
         FD_STDOUT => {

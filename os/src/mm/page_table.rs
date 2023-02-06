@@ -4,17 +4,18 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+use super::address::PPN_WIDTH_SV39;
 
 bitflags! {
     pub struct PTEFlags: u8 {
-        const V = 1 << 0;
-        const R = 1 << 1;
-        const W = 1 << 2;
-        const X = 1 << 3;
-        const U = 1 << 4;
-        const G = 1 << 5;
-        const A = 1 << 6;
-        const D = 1 << 7;
+        const V = 1 << 0;       // valid
+        const R = 1 << 1;       // readable
+        const W = 1 << 2;       // writable
+        const X = 1 << 3;       // execuatable
+        const U = 1 << 4;       // user
+        const G = 1 << 5;       // global
+        const A = 1 << 6;       // accessed
+        const D = 1 << 7;       // dirty
     }
 }
 
@@ -40,7 +41,7 @@ impl PageTableEntry {
     ///Return 44bit ppn
     pub fn ppn(&self) -> PhysPageNum {
 //        (self.bits >> 10 & ((1usize << 44) - 1)).into()
-        PhysPageNum(self.bits >> 10 & ((1usize << 44) - 1))
+        PhysPageNum(self.bits >> 10 & ((1usize << PPN_WIDTH_SV39) - 1))
     }
     ///Return 10bit flag
     pub fn flags(&self) -> PTEFlags {
@@ -64,12 +65,14 @@ impl PageTableEntry {
     }
 }
 
+/// offering the `vpn -> ppn` translatation
 pub struct PageTable {
     root_ppn: PhysPageNum,
     frames: Vec<FrameTracker>,
 }
 
 /// Assume that it won't oom when creating/mapping.
+/// note: the pagetable itself consumes a frame's space
 impl PageTable {
     pub fn new() -> Self {
         let frame = frame_alloc().unwrap();
@@ -78,7 +81,10 @@ impl PageTable {
             frames: vec![frame],
         }
     }
-    /// Temporarily used to get arguments from user space.
+    /// Temporarily used to get arguments from user space.  
+    /// 当遇到需要查一个特定页表（非当前正处在的地址空间的页表时）,
+    /// 便可先通过`PageTable::from_token`新建一个页表，
+    /// 再调用它的`translate`方法查页表。
     pub fn from_token(satp: usize) -> Self {
         Self {
 //            root_ppn: PhysPageNum::from(satp & ((1usize << 44) - 1)),
@@ -86,6 +92,8 @@ impl PageTable {
             frames: Vec::new(),
         }
     }
+    /// 在多级页表找到一个虚拟页号对应的页表项的可变引用。
+    /// 如果在遍历的过程中发现有节点尚未创建则会新建一个节点。
     fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
@@ -127,17 +135,20 @@ impl PageTable {
         result
     }
     #[allow(unused)]
+    /// `set up` a pte. the function's name may be confusing...
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         let pte = self.find_pte_create(vpn).unwrap();
         assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
     }
     #[allow(unused)]
+    /// clear a pte
     pub fn unmap(&mut self, vpn: VirtPageNum) {
         let pte = self.find_pte(vpn).unwrap();
         assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
         *pte = PageTableEntry::empty();
     }
+    /// vpn -> pte
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.find_pte(vpn).map(|pte| *pte)
     }
@@ -151,6 +162,9 @@ impl PageTable {
             (aligned_pa_usize + offset).into()
         })
     }
+    /// 8usize << 60 | self.root_ppn.0 
+    /// 按照 satp CSR 格式要求 构造一个无符号 64 位无符号整数， 
+    /// 使得其分页模式为 SV39 ，且将当前多级页表的根节点所在的物理页号填充进去
     pub fn token(&self) -> usize {
         8usize << 60 | self.root_ppn.0
     }
@@ -206,4 +220,27 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
         .translate_va(VirtAddr::from(va))
         .unwrap()
         .get_mut()
+}
+
+#[allow(unused)]
+fn _vmprint(ppn: PhysPageNum, level: usize){
+    let ptes = ppn.get_pte_array();
+    for i in 0..512 {
+        let pte = ptes[i];
+        if pte.is_valid(){
+            (0..level + 1).for_each(|_|{print!(".. ");});
+            println!("{:<3}: pte: {:x} pa: {:x}", i, pte.bits, pte.ppn().0 << 12);
+            // the pte points to a lower level pagetable ??
+            if level < 2 && !pte.writable()  && !pte.readable() && !pte.executable(){
+                _vmprint(pte.ppn(), level + 1);
+            }
+        }
+    }
+}
+
+#[allow(unused)]
+/// print a pagetable
+pub fn vmprint(pagetable: &PageTable) {
+    println!("pagetable: {:x}", usize::from(pagetable.root_ppn) << 12);
+    _vmprint(pagetable.root_ppn, 0);
 }
