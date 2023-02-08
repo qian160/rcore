@@ -253,18 +253,3 @@ pub enum TaskStatus {
     Running,
     Zombie,
 }
-
-/// similar to tcb
-#[derive(Debug)]
-pub struct TaskInfo {
-    ///
-    pub root_pagetable: usize,
-    ///
-    pub trap_cx_ppn: PhysPageNum,
-    ///
-    pub base_size: usize,
-    ///
-    pub runtime_in_user: usize,
-    ///
-    pub runtime_in_kernel: usize,
-}

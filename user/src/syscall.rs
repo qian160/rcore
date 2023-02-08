@@ -11,7 +11,6 @@ const SYS_EXEC: usize = 221;
 const SYS_WAITPID: usize = 260;
 
 const SYS_TRACE: usize = 94; 
-const SYS_TASKINFO: usize = 410;
 const SYS_MMAP: usize = 222;
 const SYS_MUNMAP: usize = 215;
 const SYS_SPAWN: usize = 400;

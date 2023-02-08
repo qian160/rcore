@@ -16,7 +16,6 @@ const SYS_YIELD: usize = 124;
 const SYS_GET_TIME: usize = 169;
 
 const SYS_TRACE: usize = 94; 
-const SYS_TASKINFO: usize = 410;
 const SYS_MMAP: usize = 222;
 const SYS_MUNMAP: usize = 215;
 const SYS_LS: usize = 216;
@@ -32,7 +31,7 @@ mod process;
 
 use fs::*;
 use process::*;
-use crate::{task::{TaskInfo, current_task, current_user_token}, timer::get_time_ms, mm::{VirtAddr, MapPermission, VirtPageNum}};
+use crate::{task::{current_task}, timer::get_time_ms, mm::{VirtAddr, MapPermission, VirtPageNum}};
 
 static mut TIMER: usize = 0;
 // count run time here
@@ -53,7 +52,6 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYS_FORK => sys_fork(),
         SYS_EXEC => sys_exec(args[0] as *const u8),
         SYS_WAITPID => sys_waitpid(args[0] as isize, args[1] as *mut i32),
-        SYS_TASKINFO => sys_taskinfo(args[0] as *mut TaskInfo),
         SYS_MMAP => sys_mmap(args[0], args[1], args[2]),
         SYS_MUNMAP => sys_munmap(args[0], args[1]),
         SYS_LS => sys_ls(),
@@ -97,19 +95,6 @@ pub unsafe fn sys_trace() -> isize {
         fp = saved_fp as *const usize;
     }
     println!("\t\t== End stack trace ==");
-    0
-}
-/// get the specified task's info. need to be improved...
-pub fn sys_taskinfo(info: *mut TaskInfo) -> isize{
-    let binding = current_task().unwrap();
-    let current = binding.inner_exclusive_access();
-    unsafe {
-        (*info).root_pagetable = current_user_token();
-        (*info).base_size = current.base_size;
-        (*info).runtime_in_kernel = current.runtime_in_kernel;
-        (*info).runtime_in_user = current.runtime_in_user;
-        (*info).trap_cx_ppn = current.trap_cx_ppn;
-    }
     0
 }
 /// 申请长度为 len 字节的物理内存，将其映射到 start 开始的虚存，内存页属性为 prot
