@@ -1,14 +1,23 @@
 use core::arch::asm;
 
-const SYSCALL_READ: usize = 63;
-const SYSCALL_WRITE: usize = 64;
-const SYSCALL_EXIT: usize = 93;
-const SYSCALL_YIELD: usize = 124;
-const SYSCALL_GET_TIME: usize = 169;
-const SYSCALL_GETPID: usize = 172;
-const SYSCALL_FORK: usize = 220;
-const SYSCALL_EXEC: usize = 221;
-const SYSCALL_WAITPID: usize = 260;
+const SYS_READ: usize = 63;
+const SYS_WRITE: usize = 64;
+const SYS_EXIT: usize = 93;
+const SYS_YIELD: usize = 124;
+const SYS_GET_TIME: usize = 169;
+const SYS_GETPID: usize = 172;
+const SYS_FORK: usize = 220;
+const SYS_EXEC: usize = 221;
+const SYS_WAITPID: usize = 260;
+
+const SYS_TRACE: usize = 94; 
+const SYS_TASKINFO: usize = 410;
+const SYS_MMAP: usize = 222;
+const SYS_MUNMAP: usize = 215;
+const SYS_SPAWN: usize = 400;
+
+const SYS_LS: usize = 216;
+
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -26,40 +35,60 @@ fn syscall(id: usize, args: [usize; 3]) -> isize {
 
 pub fn sys_read(fd: usize, buffer: &mut [u8]) -> isize {
     syscall(
-        SYSCALL_READ,
+        SYS_READ,
         [fd, buffer.as_mut_ptr() as usize, buffer.len()],
     )
 }
 
 pub fn sys_write(fd: usize, buffer: &[u8]) -> isize {
-    syscall(SYSCALL_WRITE, [fd, buffer.as_ptr() as usize, buffer.len()])
+    syscall(SYS_WRITE, [fd, buffer.as_ptr() as usize, buffer.len()])
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
-    syscall(SYSCALL_EXIT, [exit_code as usize, 0, 0]);
+    syscall(SYS_EXIT, [exit_code as usize, 0, 0]);
     panic!("sys_exit never returns!");
 }
 
 pub fn sys_yield() -> isize {
-    syscall(SYSCALL_YIELD, [0, 0, 0])
+    syscall(SYS_YIELD, [0, 0, 0])
 }
 
 pub fn sys_get_time() -> isize {
-    syscall(SYSCALL_GET_TIME, [0, 0, 0])
+    syscall(SYS_GET_TIME, [0, 0, 0])
 }
 
 pub fn sys_getpid() -> isize {
-    syscall(SYSCALL_GETPID, [0, 0, 0])
+    syscall(SYS_GETPID, [0, 0, 0])
 }
 
 pub fn sys_fork() -> isize {
-    syscall(SYSCALL_FORK, [0, 0, 0])
+    syscall(SYS_FORK, [0, 0, 0])
 }
 
 pub fn sys_exec(path: &str) -> isize {
-    syscall(SYSCALL_EXEC, [path.as_ptr() as usize, 0, 0])
+    syscall(SYS_EXEC, [path.as_ptr() as usize, 0, 0])
 }
 
 pub fn sys_waitpid(pid: isize, exit_code: *mut i32) -> isize {
-    syscall(SYSCALL_WAITPID, [pid as usize, exit_code as usize, 0])
+    syscall(SYS_WAITPID, [pid as usize, exit_code as usize, 0])
+}
+
+pub fn sys_ls() -> isize {
+    syscall(SYS_LS, [0; 3])
+}
+#[allow(unused)]
+pub fn sys_trace() -> isize {
+    syscall(SYS_TRACE, [0; 3])
+}
+#[allow(unused)]
+pub fn sys_mmap(start: usize, len: usize, perm: usize) -> isize {
+    syscall(SYS_MMAP, [start, len, perm])
+}
+#[allow(unused)]
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    syscall(SYS_MUNMAP, [start, len, 0])
+}
+
+pub fn sys_spawn(file: *const u8) -> isize {
+    syscall(SYS_SPAWN, [file as usize, 0, 0])
 }

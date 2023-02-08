@@ -92,3 +92,23 @@ pub fn sleep(period_ms: usize) {
         sys_yield();
     }
 }
+
+pub fn ls() -> isize {
+    sys_ls()
+}
+
+pub fn trace() -> isize{
+    sys_trace()
+}
+
+pub fn mmap(start: usize, len: usize, perm: usize) -> isize {
+    sys_mmap(start, len, perm)
+}
+
+pub fn munmap(start: usize, len: usize) -> isize {
+    sys_munmap(start, len)
+}
+
+pub fn spawn(file: *const u8) -> isize {
+    sys_spawn(file)
+}

@@ -57,8 +57,10 @@ lazy_static! {
 /// pagetable all the time. we just build app's memory_set, 
 /// and its pagetable will be built along the process
 pub struct MemorySet {
-    page_table: PageTable,
-    areas: Vec<MapArea>,
+    ///
+    pub page_table: PageTable,
+    /// 描述`一段连续地址的虚拟内存`(逻辑段),
+    pub areas: Vec<MapArea>,
 }
 
 impl MemorySet {
@@ -195,6 +197,7 @@ impl MemorySet {
     /// also returns user_sp and entry point.
     /// construct memory_set easily from an elf file.
     /// note: pagetable is also constructed when an area is pushed into memory_set
+    /// there is a guard page between the page for user_sp and other program headers
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -333,6 +336,7 @@ impl MapArea {
             map_perm,
         }
     }
+    /// return a same copy of MapArea
     pub fn from_another(another: &Self) -> Self {
         Self {
             vpn_range: VPNRange::new(another.vpn_range.get_start(), another.vpn_range.get_end()),

@@ -2,7 +2,7 @@
 use riscv::register::sstatus::{self, Sstatus, SPP};
 
 #[repr(C)]
-///trap context structure containing sstatus, sepc and registers
+/// a safe place to save the contexts
 pub struct TrapContext {
     /// general regs[0..31]
     pub x: [usize; 32],
@@ -23,10 +23,10 @@ impl TrapContext {
     pub fn set_sp(&mut self, sp: usize) {
         self.x[2] = sp;
     }
-    ///init app context
+    ///init app context. entry is assigned to sepc
     pub fn app_init_context(
         entry: usize,
-        sp: usize,
+        user_sp: usize,
         kernel_satp: usize,
         kernel_sp: usize,
         trap_handler: usize,
@@ -42,7 +42,7 @@ impl TrapContext {
             kernel_sp,
             trap_handler,
         };
-        cx.set_sp(sp);
+        cx.set_sp(user_sp);
         cx
     }
 }

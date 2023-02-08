@@ -46,6 +46,7 @@ _num_app:
     }
     writeln!(f, r#"    .quad app_{}_end"#, apps.len() - 1)?;
 
+    // 链接器会自动在每个字符串的结尾加入分隔符 \0
     writeln!(
         f,
         r#"

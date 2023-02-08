@@ -58,12 +58,13 @@ pub fn pid_alloc() -> PidHandle {
 }
 
 /// Return (bottom, top) of a kernel stack in kernel space.
-pub fn kernel_stack_position(app_id: usize) -> (usize, usize) {
-    let top = TRAMPOLINE - app_id * (KERNEL_STACK_SIZE + PAGE_SIZE);
+pub fn kernel_stack_position(pid: usize) -> (usize, usize) {
+    let top = TRAMPOLINE - pid * (KERNEL_STACK_SIZE + PAGE_SIZE);
     let bottom = top - KERNEL_STACK_SIZE;
     (bottom, top)
 }
-///Kernelstack for app
+/// Kernelstack for app
+/// now the address of stack is determined by its pid
 pub struct KernelStack {
     pid: usize,
 }

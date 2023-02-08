@@ -24,6 +24,7 @@ pub fn main() -> i32 {
     loop {
         let c = getchar();
         match c {
+            // enter
             LF | CR => {
                 println!("");
                 if !line.is_empty() {
@@ -32,7 +33,7 @@ pub fn main() -> i32 {
                     if pid == 0 {
                         // child process
                         if exec(line.as_str()) == -1 {
-                            println!("Error when executing!");
+                            println!("Error when executing '{}'!", line);
                             return -4;
                         }
                         unreachable!();
@@ -46,6 +47,7 @@ pub fn main() -> i32 {
                 }
                 print!(">> ");
             }
+            // backspace
             BS | DL => {
                 if !line.is_empty() {
                     print!("{}", BS as char);

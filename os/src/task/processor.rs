@@ -13,12 +13,19 @@ pub struct Processor {
     ///The basic control flow of each core, helping to select and switch process
     idle_task_cx: TaskContext,
 }
+/// idle control flow: the top level control flow.
+/// which controls all tasks' suspending and running.
+/// note: this control flow runs entirely on kernel stack,
+/// which makes itself transparent to apps
+/// idle控制流: 运行在这个 CPU 核的`启动栈`上，功能是
+/// 尝试从任务管理器中选出一个任务来在当前 CPU 核上执行
 
 impl Processor {
     ///Create an empty Processor
     pub fn new() -> Self {
         Self {
             current: None,
+            /// note: this context always runs inside run_tasks()
             idle_task_cx: TaskContext::zero_init(),
         }
     }
@@ -82,7 +89,8 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
         .inner_exclusive_access()
         .get_trap_cx()
 }
-///Return to idle control flow for new scheduling
+/// Return to `idle control flow` for new scheduling.
+/// idle control flow will then fetch a new task in ready_reque and switch to it
 pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     let mut processor = PROCESSOR.exclusive_access();
     let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
