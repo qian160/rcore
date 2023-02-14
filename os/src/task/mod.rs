@@ -14,6 +14,8 @@
 //!
 //! Be careful when you see `__switch` ASM function in `switch.S`. Control flow around this function
 //! might not be what you expect.
+//! 进程(Process): 在操作系统管理下的程序的一次执行过程
+//! 
 mod context;
 mod manager;
 mod pid;
@@ -41,11 +43,11 @@ pub use processor::{
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
     let task = take_current_task().unwrap();
-
+    // take it out, and then add it back to the end of ready_queue
     // ---- access current TCB exclusively
     let mut task_inner = task.inner_exclusive_access();
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
-    // Change status to Ready
+    // Change status to Ready. (suspend current)
     task_inner.task_status = TaskStatus::Ready;
     drop(task_inner);
     // ---- release current PCB
@@ -123,4 +125,6 @@ lazy_static! {
 ///Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+    trace!(" initproc added. here is the pagetable:");
+    crate::mm::vmprint(&INITPROC.inner_exclusive_access().memory_set.page_table);
 }

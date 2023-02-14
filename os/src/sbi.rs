@@ -1,6 +1,6 @@
 //! SBI call wrappers
+//! low-level interface between os and hardware
 #![allow(unused)]
-
 use core::arch::asm;
 
 const SBI_SET_TIMER: usize = 0;

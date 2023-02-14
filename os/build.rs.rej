@@ -1,0 +1,40 @@
+diff a/os/build.rs b/os/build.rs	(rejected hunks)
+@@ -1,6 +1,9 @@
+ use std::fs::{read_dir, File};
+ use std::io::{Result, Write};
+ 
++// generate link_app.S, which contains some data structures and binary file info
++// _num_app is an array, its first entry contains the length, then some addresses
++
+ fn main() {
+     println!("cargo:rerun-if-changed=../user/src/");
+     println!("cargo:rerun-if-changed={}", TARGET_PATH);
+@@ -10,6 +13,11 @@ fn main() {
+ static TARGET_PATH: &str = "../user/target/riscv64gc-unknown-none-elf/release/";
+ 
+ fn insert_app_data() -> Result<()> {
++    // unwrap -> remove Ok
++    // dir_entry   = Ok(DirEntry("../user/src/bin/0xxx.rs"))
++    // file_name   = "0xxx.rs"
++    // into_string = Ok("0xxx.rs")
++    // after drain = "0xxx" (no .rs)
+     let mut f = File::create("src/link_app.S").unwrap();
+     let mut apps: Vec<_> = read_dir("../user/src/bin")
+         .unwrap()
+@@ -21,7 +29,7 @@ fn insert_app_data() -> Result<()> {
+         })
+         .collect();
+     apps.sort();
+-
++    //apps.iter().for_each(|s| println!(" --- {}", s));
+     writeln!(
+         f,
+         r#"
+@@ -38,6 +46,7 @@ _num_app:
+     }
+     writeln!(f, r#"    .quad app_{}_end"#, apps.len() - 1)?;
+ 
++    // 链接器会自动在每个字符串的结尾加入分隔符 \0
+     writeln!(
+         f,
+         r#"

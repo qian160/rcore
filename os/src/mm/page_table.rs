@@ -4,17 +4,18 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+use super::address::PPN_WIDTH_SV39;
 
 bitflags! {
     pub struct PTEFlags: u8 {
-        const V = 1 << 0;
-        const R = 1 << 1;
-        const W = 1 << 2;
-        const X = 1 << 3;
-        const U = 1 << 4;
-        const G = 1 << 5;
-        const A = 1 << 6;
-        const D = 1 << 7;
+        const V = 1 << 0;       // valid
+        const R = 1 << 1;       // readable
+        const W = 1 << 2;       // writable
+        const X = 1 << 3;       // execuatable
+        const U = 1 << 4;       // user
+        const G = 1 << 5;       // global
+        const A = 1 << 6;       // accessed
+        const D = 1 << 7;       // dirty
     }
 }
 
@@ -39,7 +40,8 @@ impl PageTableEntry {
     }
     ///Return 44bit ppn
     pub fn ppn(&self) -> PhysPageNum {
-        (self.bits >> 10 & ((1usize << 44) - 1)).into()
+//        (self.bits >> 10 & ((1usize << 44) - 1)).into()
+        PhysPageNum(self.bits >> 10 & ((1usize << PPN_WIDTH_SV39) - 1))
     }
     ///Return 10bit flag
     pub fn flags(&self) -> PTEFlags {
@@ -64,7 +66,8 @@ impl PageTableEntry {
 }
 ///Record root ppn and has the same lifetime as 1 and 2 level `PageTableEntry`
 pub struct PageTable {
-    root_ppn: PhysPageNum,
+    ///
+    pub root_ppn: PhysPageNum,
     frames: Vec<FrameTracker>,
 }
 
@@ -98,6 +101,8 @@ impl PageTable {
             }
             if !pte.is_valid() {
                 let frame = frame_alloc().unwrap();
+                // note: only flag V is set. and i < 2 at this time.
+                // this means that the pte points to a lower level pagetable
                 *pte = PageTableEntry::new(frame.ppn, PTEFlags::V);
                 self.frames.push(frame);
             }
@@ -271,4 +276,27 @@ impl Iterator for UserBufferIterator {
             Some(r)
         }
     }
+}
+
+#[allow(unused)]
+fn _vmprint(ppn: PhysPageNum, level: usize){
+    let ptes = ppn.get_pte_array();
+    for i in 0..512 {
+        let pte = ptes[i];
+        if pte.is_valid(){
+            (0..level + 1).for_each(|_|{print!(".. ");});
+            println!("{:<3}: pte: {:x} pa: {:x}", i, pte.bits, pte.ppn().0 << 12);
+            // the pte points to a lower level pagetable ??
+            if level < 2 && !pte.writable()  && !pte.readable() && !pte.executable(){
+                _vmprint(pte.ppn(), level + 1);
+            }
+        }
+    }
+}
+
+#[allow(unused)]
+/// print a pagetable
+pub fn vmprint(pagetable: &PageTable) {
+    println!("pagetable: {:x}", usize::from(pagetable.root_ppn) << 12);
+    _vmprint(pagetable.root_ppn, 0);
 }

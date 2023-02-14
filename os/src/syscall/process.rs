@@ -1,4 +1,4 @@
-use crate::fs::{open_file, OpenFlags};
+use crate::fs::{open_file, OpenFlags, get_app_data_by_name};
 use crate::mm::{translated_refmut, translated_str};
 use crate::task::{
     add_task, current_task, current_user_token, exit_current_and_run_next,
@@ -8,6 +8,11 @@ use crate::timer::get_time_ms;
 use alloc::sync::Arc;
 
 pub fn sys_exit(exit_code: i32) -> ! {
+    // generally speaking,:
+    // 0: initproc, 1: user_shell, 2: the cmd we type on shell
+    if current_task().unwrap().pid.0 == 2{
+        current_task().unwrap().show_timer_before_exit();
+    }
     exit_current_and_run_next(exit_code);
     panic!("Unreachable in sys_exit!");
 }
@@ -25,6 +30,7 @@ pub fn sys_getpid() -> isize {
     current_task().unwrap().pid.0 as isize
 }
 
+/// return value: child -> 0, parent -> child's pid
 pub fn sys_fork() -> isize {
     let current_task = current_task().unwrap();
     let new_task = current_task.fork();
@@ -88,4 +94,20 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
         -2
     }
     // ---- release current PCB automatically
+}
+
+pub fn _sys_spawn(path: *const u8) -> isize {
+    let str = translated_str(current_user_token(), path);
+    debug!(" str = {}", str);
+    let current_task = current_task().unwrap();
+    let new_task = current_task.spawn(&get_app_data_by_name(&str));
+    let new_pid = new_task.pid.0;
+    // modify trap context of new_task, because it returns immediately after switching
+    let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+    // we do not have to move to next instruction since we have done it before
+    // for child process, fork returns 0
+    trap_cx.x[10] = new_pid;
+    // add new task to scheduler
+    add_task(new_task);
+    new_pid as isize
 }

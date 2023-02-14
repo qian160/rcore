@@ -1,6 +1,7 @@
 pub const CLOCK_FREQ: usize = 12500000;
 pub const MEMORY_END: usize = 0x801000000;
 
+/// [start, len)
 pub const MMIO: &[(usize, usize)] = &[
     (0x0010_0000, 0x00_2000), // VIRT_TEST/RTC  in virt machine
     (0x1000_1000, 0x00_1000), // Virtio Block in virt machine
@@ -19,7 +20,6 @@ const EXIT_RESET: u32 = 0x7777; // qemu reset
 
 pub trait QEMUExit {
     /// Exit with specified return code.
-    ///
     /// Note: For `X86`, code is binary-OR'ed with `0x1` inside QEMU.
     fn exit(&self, code: u32) -> !;
 

@@ -1,0 +1,77 @@
+diff a/os/src/mm/address.rs b/os/src/mm/address.rs	(rejected hunks)
+@@ -2,22 +2,41 @@
+ use super::PageTableEntry;
+ use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
+ use core::fmt::{self, Debug, Formatter};
+-/// physical address
+-const PA_WIDTH_SV39: usize = 56;
+-const VA_WIDTH_SV39: usize = 39;
+-const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
+-const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
++
++/// ----- some comments -----
++/// the name 'page number' is a little confusing...
++/// in fact, they do tell us information about "which page [that address] belongs to"
++/// for L0-pagetable, [that address] exactly refers to the data.
++/// but for L1 and L2, it refers to next-level's pagetables
++/// 
++/// about vpn:
++/// ppn is nature and easy to understand, since physicaly address is divided into pages
++/// but what about vpn? in fact when seeing a virtual address,
++/// we know that it must belongs to some physical page. the case here is abstraction.
++/// that is, a program should not be aware of the existance virtual memory
++/// for example, a program sees an address of 0x80600000, and thought its page number was 0x80600.
++/// however after translation it may be mapped to page 0x80400
++/// what we see is different from what we get, so we call it virtual (page number)
++
+ 
+ /// physical address
++pub const PA_WIDTH_SV39: usize = 56;
++pub const VA_WIDTH_SV39: usize = 39;
++#[allow(unused)]
++pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
++#[allow(unused)]
++pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
++
++/// physical address. `56`bits, 44 + 12
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct PhysAddr(pub usize);
+-/// virtual address
++/// virtual address. `39`bits
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct VirtAddr(pub usize);
+-/// physical page number
++/// physical page number, `44`bits
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct PhysPageNum(pub usize);
+-/// virtual page number
++/// virtual page number. `27`bits consisted of 3 9-bit indexes
+ #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+ pub struct VirtPageNum(pub usize);
+ 
+@@ -182,7 +249,7 @@ impl PhysPageNum {
+         let pa: PhysAddr = (*self).into();
+         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, 4096) }
+     }
+-    ///
++    /// ppn -> &mut pa
+     pub fn get_mut<T>(&self) -> &'static mut T {
+         let pa: PhysAddr = (*self).into();
+         pa.get_mut()
+@@ -193,13 +260,15 @@ pub trait StepByOne {
+     fn step(&mut self);
+ }
+ impl StepByOne for VirtPageNum {
++    /// move to next page. `self.0 += 1`
++    /// (just increases the struct member)
+     fn step(&mut self) {
+         self.0 += 1;
+     }
+ }
+ 
+ #[derive(Copy, Clone)]
+-/// a simple range structure for type T
++/// a simple range structure for type T. [l, r)
+ pub struct SimpleRange<T>
+ where
+     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,

@@ -10,7 +10,7 @@ use super::File;
 use crate::drivers::BLOCK_DEVICE;
 use crate::mm::UserBuffer;
 use crate::sync::UPSafeCell;
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec};
 use alloc::vec::Vec;
 use bitflags::*;
 use easy_fs::{EasyFileSystem, Inode};
@@ -61,6 +61,14 @@ lazy_static! {
         Arc::new(EasyFileSystem::root_inode(&efs))
     };
 }
+/// get a app's binary data
+pub fn get_app_data_by_name(name: &str) -> Vec<u8> {
+    let mut buf: Vec<u8> = vec![];
+    let inode = ROOT_INODE.find(name).unwrap();
+    inode.read_at(0, &mut buf);
+    buf
+}
+
 /// List all files in the filesystems
 pub fn list_apps() {
     println!("/**** APPS ****");

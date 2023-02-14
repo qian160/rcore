@@ -9,8 +9,8 @@
     .globl __switch
 __switch:
     # __switch(
-    #     current_task_cx_ptr: *mut TaskContext,
-    #     next_task_cx_ptr: *const TaskContext
+    #     a0: current_task_cx_ptr: *mut TaskContext,
+    #     a1: next_task_cx_ptr: *const TaskContext
     # )
     # save kernel stack of current task
     sd sp, 8(a0)
@@ -30,5 +30,6 @@ __switch:
     .endr
     # restore kernel stack of next task
     ld sp, 8(a1)
+    # ra is changed to next task's ra
     ret
 

@@ -11,6 +11,9 @@
 //! It then calls different functionality based on what exactly the exception
 //! was. For example, timer interrupts trigger task preemption, and syscalls go
 //! to [`syscall()`].
+
+// 要求地址空间的切换不能影响指令的连续执行，即应用和内核地址空间在切换地址空间指令附近是平滑的。
+
 mod context;
 
 use crate::config::{TRAMPOLINE, TRAP_CONTEXT};
@@ -31,13 +34,13 @@ global_asm!(include_str!("trap.S"));
 pub fn init() {
     set_kernel_trap_entry();
 }
-
+/// panic if kernel trap happens
 fn set_kernel_trap_entry() {
     unsafe {
         stvec::write(trap_from_kernel as usize, TrapMode::Direct);
     }
 }
-
+/// trampoline
 fn set_user_trap_entry() {
     unsafe {
         stvec::write(TRAMPOLINE as usize, TrapMode::Direct);
@@ -73,7 +76,7 @@ pub fn trap_handler() -> ! {
         | Trap::Exception(Exception::InstructionPageFault)
         | Trap::Exception(Exception::LoadFault)
         | Trap::Exception(Exception::LoadPageFault) => {
-            println!(
+            error!(
                 "[kernel] {:?} in application, bad addr = {:#x}, bad instruction = {:#x}, kernel killed it.",
                 scause.cause(),
                 stval,
@@ -83,7 +86,7 @@ pub fn trap_handler() -> ! {
             exit_current_and_run_next(-2);
         }
         Trap::Exception(Exception::IllegalInstruction) => {
-            println!("[kernel] IllegalInstruction in application, kernel killed it.");
+            error!("[kernel] IllegalInstruction in application, kernel killed it.");
             // illegal instruction exit code
             exit_current_and_run_next(-3);
         }
@@ -115,6 +118,8 @@ pub fn trap_return() -> ! {
         fn __alltraps();
         fn __restore();
     }
+    // __restore's physical address is in kernel's .text, which is something like 8020xxxx
+    // we need to get its va. that's easy since it's mapped to trampoline. just plus an offset
     let restore_va = __restore as usize - __alltraps as usize + TRAMPOLINE;
     unsafe {
         asm!(
