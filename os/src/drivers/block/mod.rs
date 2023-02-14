@@ -1,3 +1,4 @@
+//!将不同平台上的块设备全局实例化为 BLOCK_DEVICE 提供给其他模块使用
 mod virtio_blk;
 
 pub use virtio_blk::VirtIOBlock;
@@ -8,6 +9,7 @@ use easy_fs::BlockDevice;
 use lazy_static::*;
 
 lazy_static! {
+    /// 内核访问的块设备实例
     pub static ref BLOCK_DEVICE: Arc<dyn BlockDevice> = Arc::new(BlockDeviceImpl::new());
 }
 

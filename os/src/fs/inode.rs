@@ -4,6 +4,8 @@
 //!
 //! `UPSafeCell<OSInodeInner>` -> `OSInode`: for static `ROOT_INODE`,we
 //! need to wrap `OSInodeInner` into `UPSafeCell`
+//! 将 easy-fs 提供的 Inode 抽象封装为内核看到的 OSInode
+//! 并实现 fs 子模块的 File Trait
 use super::File;
 use crate::drivers::BLOCK_DEVICE;
 use crate::mm::UserBuffer;
@@ -22,6 +24,7 @@ pub struct OSInode {
 }
 /// The OS inode inner in 'UPSafeCell'
 pub struct OSInodeInner {
+    /// 在 sys_read/write 期间被维护偏移量
     offset: usize,
     inode: Arc<Inode>,
 }

@@ -38,7 +38,7 @@ pub fn sys_fork() -> isize {
     add_task(new_task);
     new_pid as isize
 }
-
+// based on efs now
 pub fn sys_exec(path: *const u8) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
@@ -54,6 +54,7 @@ pub fn sys_exec(path: *const u8) -> isize {
 
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
+/// tong shi fu ze shi fang zi yuan?
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     let task = current_task().unwrap();
     // find a child process

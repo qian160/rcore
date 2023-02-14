@@ -1,3 +1,4 @@
+//! generate fs.img
 use clap::{App, Arg};
 use easy_fs::{BlockDevice, EasyFileSystem};
 use std::fs::{read_dir, File, OpenOptions};
@@ -48,7 +49,7 @@ fn easy_fs_pack() -> std::io::Result<()> {
         .get_matches();
     let src_path = matches.value_of("source").unwrap();
     let target_path = matches.value_of("target").unwrap();
-    println!("src_path = {}\ntarget_path = {}", src_path, target_path);
+    println!("src_path = '{}'\ntarget_path = '{}'", src_path, target_path);
     let block_file = Arc::new(BlockFile(Mutex::new({
         let f = OpenOptions::new()
             .read(true)
@@ -70,6 +71,10 @@ fn easy_fs_pack() -> std::io::Result<()> {
             name_with_ext
         })
         .collect();
+    println!("{} apps found:", apps.len());
+    for (id, app) in apps.iter().enumerate(){
+        println!(" app[{:>2}]: {}", id, app);
+    }
     for app in apps {
         // load app data from host file system
         let mut host_file = File::open(format!("{}{}", target_path, app)).unwrap();
@@ -81,6 +86,7 @@ fn easy_fs_pack() -> std::io::Result<()> {
         inode.write_at(0, all_data.as_slice());
     }
     // list apps
+    println!("[easy-fs-fuse] easy-fs created! with apps:");
     for app in root_inode.ls() {
         println!("{}", app);
     }
@@ -95,7 +101,7 @@ fn efs_test() -> std::io::Result<()> {
             .write(true)
             .create(true)
             .open("target/fs.img")?;
-        f.set_len(8192 * 512).unwrap();
+        f.set_len(8192 * 512).unwrap(); // 8192 blocks, 4MB
         f
     })));
     EasyFileSystem::create(block_file.clone(), 4096, 1);
@@ -149,3 +155,23 @@ fn efs_test() -> std::io::Result<()> {
 
     Ok(())
 }
+
+/*
+文件系统初始化:
+为了使用 easy-fs 提供的抽象和服务，我们需要进行一些初始化操作才能成功将 easy-fs 接入到我们的内核中。按照前面总结的步骤：
+    1. 打开块设备。从本节前面可以看出，我们已经打开并可以访问装载有 easy-fs 文件系统镜像的块设备 BLOCK_DEVICE
+    2. 从块设备 BLOCK_DEVICE 上打开文件系统；
+    3. 从文件系统中获取根目录的 inode 。
+
+2-3 步我们在这里完成：
+
+// os/src/fs/inode.rs
+
+lazy_static! {
+    pub static ref ROOT_INODE: Arc<Inode> = {
+        let efs = EasyFileSystem::open(BLOCK_DEVICE.clone());
+        Arc::new(EasyFileSystem::root_inode(&efs))
+    };
+}
+这之后就可以使用根目录的 inode ROOT_INODE ，在内核中进行各种 easy-fs 的相关操作了。例如，在文件系统初始化完毕之后，在内核主函数 rust_main 中调用 list_apps 函数来列举文件系统中可用的应用的文件名：
+*/

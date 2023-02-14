@@ -61,6 +61,7 @@ pub const IDLE_PID: usize = 0;
 
 use crate::board::QEMUExit;
 
+//,,mm             vx cxdsdxsxszxxsaZz
 /// Exit the current 'Running' task and run the next task in task list.
 pub fn exit_current_and_run_next(exit_code: i32) {
     // take from Processor
