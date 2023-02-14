@@ -3,6 +3,22 @@ use super::PageTableEntry;
 use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
 use core::fmt::{self, Debug, Formatter};
 
+/// ----- some comments -----
+/// the name 'page number' is a little confusing...
+/// in fact, they do tell us information about "which page [that address] belongs to"
+/// for L0-pagetable, [that address] exactly refers to the data.
+/// but for L1 and L2, it refers to next-level's pagetables
+/// 
+/// about vpn:
+/// ppn is nature and easy to understand, since physicaly address is divided into pages
+/// but what about vpn? in fact when seeing a virtual address,
+/// we know that it must belongs to some physical page. the case here is abstraction.
+/// that is, a program should not be aware of the existance virtual memory
+/// for example, a program sees an address of 0x80600000, and thought its page number was 0x80600.
+/// however after translation it may be mapped to page 0x80400
+/// what we see is different from what we get, so we call it virtual (page number)
+
+
 pub const PA_WIDTH_SV39: usize = 56;
 pub const VA_WIDTH_SV39: usize = 39;
 pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
@@ -10,6 +26,7 @@ pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
 pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 
 /// Definitions
+/// virtual address. `39`bits
 #[repr(C)]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub usize);
