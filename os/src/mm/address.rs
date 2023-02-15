@@ -26,24 +26,24 @@ pub const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
 pub const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
 
 /// Definitions
-/// virtual address. `39`bits
+/// physical address. `56`bits
 #[repr(C)]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub usize);
 
 #[repr(C)]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-///virtual address
+///virtual address. `39`bits
 pub struct VirtAddr(pub usize);
 
 #[repr(C)]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-///phiscal page number
+///phiscal page number. `44` bits consisted of 3 `9`-bit indexes
 pub struct PhysPageNum(pub usize);
 
 #[repr(C)]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-///virtual page number
+///virtual page number. `27`bits
 pub struct VirtPageNum(pub usize);
 
 /// Debugging
@@ -282,7 +282,7 @@ impl StepByOne for PhysPageNum {
 }
 
 #[derive(Copy, Clone)]
-/// a simple range structure for type T
+/// a simple range structure for type T. [l, r)
 pub struct SimpleRange<T>
 where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,

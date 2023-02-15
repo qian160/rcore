@@ -12,6 +12,11 @@ const SYSCALL_FORK: usize = 220;
 const SYSCALL_EXEC: usize = 221;
 const SYSCALL_WAITPID: usize = 260;
 
+const SYSCALL_MMAP: usize = 222;
+const SYSCALL_MUNMAP: usize = 215;
+const SYSCALL_LS: usize = 216;
+const SYSCALL_SPAWN: usize = 400;
+
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
     unsafe {

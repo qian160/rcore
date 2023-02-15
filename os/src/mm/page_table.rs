@@ -72,6 +72,8 @@ pub struct PageTable {
 }
 
 /// Assume that it won't oom when creating/mapping.
+/// offering the `vpn -> ppn` translatation
+/// note: the pagetable itself takes up a frame's space
 impl PageTable {
     /// Create an empty `PageTable`
     pub fn new() -> Self {
@@ -81,7 +83,10 @@ impl PageTable {
             frames: vec![frame],
         }
     }
-    /// Temporarily used to get arguments from user space.
+    /// Temporarily used to get arguments from user space.  
+    /// 当遇到需要查一个特定页表（非当前正处在的地址空间的页表时）,
+    /// 便可先通过`PageTable::from_token`新建一个页表，
+    /// 再调用它的`translate`方法查页表。
     pub fn from_token(satp: usize) -> Self {
         Self {
             root_ppn: PhysPageNum::from(satp & ((1usize << 44) - 1)),
@@ -89,6 +94,8 @@ impl PageTable {
         }
     }
     /// Find phsical address by virtual address, create a frame if not exist
+    /// 在多级页表找到一个虚拟页号对应的页表项的可变引用。
+    /// 如果在遍历的过程中发现有节点尚未创建则会新建一个节点。
     fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
@@ -111,6 +118,8 @@ impl PageTable {
         result
     }
     /// Find phsical address by virtual address
+    /// 当找不到合法叶子节点的时候不会新建叶子节点,而是直接返回
+    /// None 即查找失败。因此，它不会尝试对页表本身进行修改
     fn find_pte(&self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
@@ -130,6 +139,8 @@ impl PageTable {
     }
     #[allow(unused)]
     /// Create a mapping form `vpn` to `ppn`
+    /// use the pagetable to find and create a pte
+    /// the function's name may be confusing...
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         let pte = self.find_pte_create(vpn).unwrap();
         assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
@@ -137,6 +148,7 @@ impl PageTable {
     }
     #[allow(unused)]
     /// Delete a mapping form `vpn`
+    /// clear a pte
     pub fn unmap(&mut self, vpn: VirtPageNum) {
         let pte = self.find_pte(vpn).unwrap();
         assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
@@ -156,6 +168,9 @@ impl PageTable {
         })
     }
     /// Get root ppn
+    /// 8usize << 60 | self.root_ppn.0 
+    /// 按照 satp CSR 格式要求 构造一个无符号 64 位无符号整数， 
+    /// 使得其分页模式为 SV39 ，且将当前多级页表的根节点所在的物理页号填充进去
     pub fn token(&self) -> usize {
         8usize << 60 | self.root_ppn.0
     }

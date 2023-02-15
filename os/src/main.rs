@@ -53,6 +53,12 @@ pub mod trap;
 use core::arch::global_asm;
 
 global_asm!(include_str!("entry.asm"));
+
+macro_rules! color_text {
+    ($text:expr, $color:expr) => {{
+        format_args!("\x1b[{}m{}\x1b[0m", $color, $text)
+    }};
+}
 /// clear BSS segment
 fn clear_bss() {
     extern "C" {
@@ -65,18 +71,40 @@ fn clear_bss() {
     }
 }
 
-#[no_mangle]
-/// the rust entry-point of os
-pub fn rust_main() -> ! {
+fn init() {
     clear_bss();
-    println!("[kernel] Hello, world!");
     mm::init();
     mm::remap_test();
     trap::init();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
-    fs::list_apps();
     task::add_initproc();
+}
+
+#[no_mangle]
+/// the rust entry-point of os
+pub fn rust_main() -> ! {
+    init();
+    println!(
+        "{}{}{}{}{} {}{}{}{} {}{}{}{}{}{}",
+        color_text!("H", 31),
+        color_text!("e", 32),
+        color_text!("l", 33),
+        color_text!("l", 34),
+        color_text!("o", 35),
+        color_text!("R", 36),
+        color_text!("u", 37),
+        color_text!("s", 90),
+        color_text!("t", 91),
+        color_text!("u", 92),
+        color_text!("C", 93),
+        color_text!("o", 94),
+        color_text!("r", 95),
+        color_text!("e", 96),
+        color_text!("!", 97),
+    );
+    debug!(" start to run initproc!");
+    fs::list_apps();
     task::run_tasks();
     panic!("Unreachable in rust_main!");
 }

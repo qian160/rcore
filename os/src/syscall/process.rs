@@ -45,6 +45,9 @@ pub fn sys_fork() -> isize {
     new_pid as isize
 }
 // based on efs now
+/// 功能：将当前进程的地址空间清空并加载一个特定的可执行文件，返回用户态后开始它的执行。
+/// 参数：path 给出了要加载的可执行文件的名字；
+/// 返回值：如果出错的话（如找不到名字相符的可执行文件）则返回 -1，否则不应该返回。
 pub fn sys_exec(path: *const u8) -> isize {
     let token = current_user_token();
     let path = translated_str(token, path);
@@ -60,7 +63,7 @@ pub fn sys_exec(path: *const u8) -> isize {
 
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
-/// tong shi fu ze shi fang zi yuan?
+/// also release that child process's resources
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     let task = current_task().unwrap();
     // find a child process
@@ -95,8 +98,8 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     }
     // ---- release current PCB automatically
 }
-
-pub fn _sys_spawn(path: *const u8) -> isize {
+/// generate a new task and add it to tcb 
+pub fn sys_spawn(path: *const u8) -> isize {
     let str = translated_str(current_user_token(), path);
     debug!(" str = {}", str);
     let current_task = current_task().unwrap();

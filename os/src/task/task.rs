@@ -25,13 +25,20 @@ pub struct TaskControlBlock {
 }
 
 pub struct TaskControlBlockInner {
+    // trap_cx_ppn is a little redundant. we could also find that
+    // by looking up pagetable, like: let trap_cx_ppn = pagetable.translate(TRAP_CONTEXT.into()).ppn
+    // here is just a space vs time tradeoff
     pub trap_cx_ppn: PhysPageNum,
+    /// 应用数据仅有可能出现在应用地址空间低于 base_size 字节的区域中. `init value = user_sp`
     pub base_size: usize,
     pub task_cx: TaskContext,
     pub task_status: TaskStatus,
     pub memory_set: MemorySet,
     pub parent: Option<Weak<TaskControlBlock>>,
     pub children: Vec<Arc<TaskControlBlock>>,
+    /// 当进程调用 exit 系统调用主动退出或者执行出错由内核终止的时候，
+    /// 它的退出码 exit_code 会被内核保存在它的任务控制块中，
+    /// 并等待它的父进程通过 waitpid 回收它的资源的同时也收集它的 PID 以及退出码
     pub exit_code: i32,
     pub runtime_in_user: usize,
     pub runtime_in_kernel: usize,
@@ -73,6 +80,8 @@ impl TaskControlBlock {
     }
     pub fn new(elf_data: &[u8]) -> Self {
         // memory_set with elf program headers/trampoline/trap context/user stack
+        // the task will go to execuating in `__restore` with its 
+        // carefully prepared init context
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
         let trap_cx_ppn = memory_set
             .translate(VirtAddr::from(TRAP_CONTEXT).into())
@@ -145,6 +154,7 @@ impl TaskControlBlock {
         *inner.get_trap_cx() = trap_cx;
         // **** release current PCB
     }
+    /// makes a copy and returns the child
     pub fn fork(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
         // ---- hold parent PCB lock
         let mut parent_inner = self.inner_exclusive_access();
@@ -246,7 +256,7 @@ impl TaskControlBlock {
         // return
         task_control_block
         // ---- release parent PCB lock
-}
+    }
     pub fn show_timer_before_exit(&self){
         let utimer = self.inner_exclusive_access().runtime_in_user;
         let ktimer = self.inner_exclusive_access().runtime_in_kernel;

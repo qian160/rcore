@@ -50,11 +50,21 @@ lazy_static! {
 pub fn kernel_token() -> usize {
     KERNEL_SPACE.exclusive_access().token()
 }
-/// memory set structure, controls virtual-memory space
+/// high-level structure, controls all the `virtual-memory space` of an app(or kernel).
+/// a `set`(collection) is consisted of many `areas`.
+/// 注意`PageTable`下挂着所有多级页表的节点所在的物理页帧，
+/// 而每个`MapArea`下则挂着对应逻辑段中的数据所在的物理页帧，
+/// 这两部分合在一起构成了一个地址空间所需的所有物理页帧
+/// note: memory_set is a higher level abstraction than pagetable.
+/// since pagetable is not so easy to deal with. with the help of 
+/// memory_set now, we are luckily that we don't need to deal with
+/// pagetable all the time. we just build app's memory_set, 
+/// and its pagetable will be built along the process
 pub struct MemorySet {
     /// root pagetable
     pub page_table: PageTable,
-    areas: Vec<MapArea>,
+    /// 描述`一段连续地址的虚拟内存`(逻辑段), 
+    pub areas: Vec<MapArea>,
 }
 
 impl MemorySet {
@@ -330,6 +340,7 @@ impl MapArea {
             map_perm,
         }
     }
+    /// return a same copy of MapArea
     pub fn from_another(another: &MapArea) -> Self {
         Self {
             vpn_range: VPNRange::new(another.vpn_range.get_start(), another.vpn_range.get_end()),
