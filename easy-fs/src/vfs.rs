@@ -14,8 +14,10 @@ use spin::{Mutex, MutexGuard};
 /// and we defien some functions above it to make DiskInode easier to use.
 /// (a block can contain 4 inodes)
 pub struct Inode {
-    block_id: usize,
-    block_offset: usize,
+    ///
+    pub block_id: usize,
+    ///
+    pub block_offset: usize,
     fs: Arc<Mutex<EasyFileSystem>>,
     block_device: Arc<dyn BlockDevice>,
 }
@@ -46,6 +48,22 @@ impl Inode {
         get_block_cache(self.block_id, Arc::clone(&self.block_device))
             .lock()
             .modify(self.block_offset, f)
+    }
+    /// overwritting this inode with the target one. used in sys_linkat
+    pub fn linkat(&mut self, target: &Arc<Inode>) {
+        let binding = get_block_cache(target.block_id, Arc::clone(&self.block_device));
+        let binding = binding.lock();
+        let target: &DiskInode = binding.get_ref(target.block_offset);
+        let target = target as *const DiskInode as *const u8;
+        drop(binding);      // otherwise the next `get_block_cache` call will fall into dead loop
+        get_block_cache(self.block_id,  Arc::clone(&self.block_device))
+            .lock()
+            .modify(self.block_offset, |src: &mut DiskInode| {
+                let src = (src as *mut DiskInode) as *mut u8;
+                unsafe {
+                    src.copy_from(target, core::mem::size_of::<DiskInode>());
+                }
+            });
     }
     /// Find inode under a disk inode by name
     /// a helper function of find()
@@ -108,8 +126,10 @@ impl Inode {
     /// Create inode under current inode by name
     /// 在根目录下创建一个文件，只有根目录的 Inode 会调用
     /// increase root inode size by some multiple of 
-    pub fn create(&self, name: &str) -> Option<Arc<Inode>> {
+    //pub fn create(&self, name: &str) -> Option<Arc<Inode>> {
+    pub fn create(&self, name: &str) -> Option<Inode> {
         let mut fs = self.fs.lock();
+        // return the given inode's id in disk
         let op = |root_inode: &DiskInode| {
             // assert it is a directory
             assert!(root_inode.is_dir());
@@ -151,12 +171,12 @@ impl Inode {
         let (block_id, block_offset) = fs.get_disk_inode_pos(new_inode_id);
         block_cache_sync_all();
         // return inode
-        Some(Arc::new(Self::new(
+        Some(Self::new(
             block_id,
             block_offset,
             self.fs.clone(),
             self.block_device.clone(),
-        )))
+        ))
         // release efs lock automatically by compiler
     }
     /// List inodes under current inode

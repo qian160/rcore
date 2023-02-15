@@ -56,6 +56,7 @@ impl OSInode {
 }
 
 lazy_static! {
+    /// root inode, type = directory. use this to find and create files
     pub static ref ROOT_INODE: Arc<Inode> = {
         let efs = EasyFileSystem::open(BLOCK_DEVICE.clone());
         Arc::new(EasyFileSystem::root_inode(&efs))
@@ -108,6 +109,7 @@ impl OpenFlags {
     }
 }
 ///Open file with flags
+/// search under the root inode
 pub fn open_file(name: &str, flags: OpenFlags) -> Option<Arc<OSInode>> {
     let (readable, writable) = flags.read_write();
     if flags.contains(OpenFlags::CREATE) {
@@ -119,7 +121,7 @@ pub fn open_file(name: &str, flags: OpenFlags) -> Option<Arc<OSInode>> {
             // create file
             ROOT_INODE
                 .create(name)
-                .map(|inode| Arc::new(OSInode::new(readable, writable, inode)))
+                .map(|inode| Arc::new(OSInode::new(readable, writable, Arc::new(inode))))
         }
     } else {
         ROOT_INODE.find(name).map(|inode| {

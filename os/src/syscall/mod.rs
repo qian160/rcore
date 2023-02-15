@@ -25,6 +25,10 @@ const SYSCALL_MMAP: usize = 222;
 const SYSCALL_MUNMAP: usize = 215;
 const SYSCALL_LS: usize = 216;
 const SYSCALL_SPAWN: usize = 400;
+const SYSCALL_LINKAT: usize = 37;
+const SYSCALL_UNLINKAT: usize = 35;
+const SYSCALL_FSTAT: usize = 80;
+
 
 mod fs;
 mod process;
@@ -58,6 +62,9 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_MUNMAP => sys_munmap(args[0], args[1]),
         SYSCALL_LS => sys_ls(),
         SYSCALL_SPAWN => sys_spawn(args[0] as *const u8),
+        SYSCALL_LINKAT => sys_linkat(args[0] as *const u8, args[1] as *const u8),
+        SYSCALL_UNLINKAT => 0,
+        SYSCALL_FSTAT => 0,
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
     let time_after = crate::timer::get_time_ms();

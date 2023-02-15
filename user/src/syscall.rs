@@ -16,6 +16,9 @@ const SYSCALL_MMAP: usize = 222;
 const SYSCALL_MUNMAP: usize = 215;
 const SYSCALL_LS: usize = 216;
 const SYSCALL_SPAWN: usize = 400;
+const SYSCALL_LINKAT: usize = 37;
+const SYSCALL_UNLINKAT: usize = 35;
+const SYSCALL_FSTAT: usize = 80;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -77,4 +80,28 @@ pub fn sys_exec(path: &str) -> isize {
 
 pub fn sys_waitpid(pid: isize, exit_code: *mut i32) -> isize {
     syscall(SYSCALL_WAITPID, [pid as usize, exit_code as usize, 0])
+}
+
+pub fn sys_ls() -> isize {
+    syscall(SYSCALL_LS, [0; 3])
+}
+
+#[allow(unused)]
+pub fn sys_mmap(start: usize, len: usize, perm: usize) -> isize {
+    syscall(SYSCALL_MMAP, [start, len, perm])
+}
+
+#[allow(unused)]
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    syscall(SYSCALL_MUNMAP, [start, len, 0])
+}
+
+#[allow(unused)]
+pub fn sys_spawn(file: *const u8) -> isize {
+    syscall(SYSCALL_SPAWN, [file as usize, 0, 0])
+}
+
+#[allow(unused)]
+pub fn sys_linkat(oldfile: *const u8, newfile: *const u8) -> isize {
+    syscall(SYSCALL_LINKAT, [oldfile as usize, newfile as usize, 0])
 }
