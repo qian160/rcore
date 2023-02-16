@@ -110,3 +110,8 @@ pub fn sys_linkat(oldfile: *const u8, newfile: *const u8) -> isize {
 pub fn sys_unlinkat(path: *const u8) -> isize {
     syscall(SYSCALL_UNLINKAT, [path as usize, 0, 0])
 }
+
+#[allow(unused)]
+pub fn sys_fstat(fd: usize, st: *mut crate::Stat) -> isize {
+    syscall(SYSCALL_FSTAT, [fd, st as *mut u8 as usize, 0])
+}

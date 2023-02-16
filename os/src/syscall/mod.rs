@@ -64,7 +64,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_SPAWN => sys_spawn(args[0] as *const u8),
         SYSCALL_LINKAT => sys_linkat(args[0] as *const u8, args[1] as *const u8),
         SYSCALL_UNLINKAT => sys_unlinkat(args[0] as *const u8),
-        SYSCALL_FSTAT => 0,
+        SYSCALL_FSTAT => sys_fstat(args[0] as i32, args[1] as *mut u8 as *mut Stat),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };
     let time_after = crate::timer::get_time_ms();

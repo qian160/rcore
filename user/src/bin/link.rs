@@ -5,7 +5,7 @@
 extern crate user_lib;
 extern crate alloc;
 
-use user_lib::{close, open, read, OpenFlags, linkat, unlinkat};
+use user_lib::{close, open, read, OpenFlags, linkat, unlinkat, fstat, Stat};
 
 const link_src: &str = "114514\0";
 const link_target: &str = "filea\0";
@@ -18,6 +18,9 @@ fn cat() {
     // bug: the contents inside are gone, but file can still be opened
     let fd = fd as usize;
     println!("file {} opened successfully!", link_src);
+    let mut st = Stat::new();
+    fstat(fd, core::ptr::addr_of_mut!(st));
+    println!("{:?}", st);
     let mut buf = [0u8; 256];
     loop {
         let size = read(fd, &mut buf) as usize;

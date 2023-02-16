@@ -254,4 +254,18 @@ impl Inode {
             }
         });
     }
+    /// get the inode's size
+    pub fn size(&self) -> u32 {
+        get_block_cache(self.block_id, Arc::clone(&self.block_device)).lock()
+            .read(self.block_offset, | diskinode: &DiskInode | {
+                diskinode.size
+            })
+    }
+    /// true if type == file
+    pub fn is_file(&self) -> bool {
+        get_block_cache(self.block_id, Arc::clone(&self.block_device)).lock()
+            .read(self.block_offset, | diskinode: &DiskInode | {
+                diskinode.is_file()
+            })
+    }
 }

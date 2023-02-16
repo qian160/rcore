@@ -6,8 +6,9 @@ use crate::fs::{File, Stdin, Stdout};
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
+use alloc::collections::BTreeMap;
 use alloc::sync::{Arc, Weak};
-use alloc::vec;
+use alloc::{vec, string};
 use alloc::vec::Vec;
 use core::cell::RefMut;
 
@@ -42,6 +43,7 @@ pub struct TaskControlBlockInner {
     pub exit_code: i32,
     pub runtime_in_user: usize,
     pub runtime_in_kernel: usize,
+    pub fd_name_map: BTreeMap<i32, string::String>,
     pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
 }
 
@@ -114,6 +116,7 @@ impl TaskControlBlock {
                         // 2 -> stderr
                         Some(Arc::new(Stdout)),
                     ],
+                    fd_name_map: BTreeMap::new(),
                 })
             },
         };
@@ -193,6 +196,7 @@ impl TaskControlBlock {
                     runtime_in_user: 0,
                     runtime_in_kernel: 0,
                     fd_table: new_fd_table,
+                    fd_name_map: BTreeMap::new(),
                 })
             },
         });
@@ -237,6 +241,7 @@ impl TaskControlBlock {
                     runtime_in_user: 0,
                     fd_table: Vec::new(),
                     task_cx: TaskContext::goto_trap_return(kernel_stack_top),
+                    fd_name_map: BTreeMap::new(),
             })
             },
         });

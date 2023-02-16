@@ -55,6 +55,7 @@ pub fn sys_open(path: *const u8, flags: u32) -> isize {
         let fd = inner.alloc_fd();
         trace!(" open fd = [{}], name = {}", fd, path);
         inner.fd_table[fd] = Some(inode);
+        inner.fd_name_map.insert(fd as i32, path);
         fd as isize
     } else {
         -1
@@ -71,6 +72,7 @@ pub fn sys_close(fd: usize) -> isize {
         return -1;
     }
     inner.fd_table[fd].take();
+    inner.fd_name_map.remove(&(fd as i32));
     trace!(" close fd = [{}]", fd);
     0
 }
@@ -104,5 +106,63 @@ pub fn sys_unlinkat(path: *const u8) -> isize {
         return 0;
     }
     error!("unlink failed. file '{}' doesn't exist!", name);
+    -1
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct Stat {
+    /// 文件所在磁盘驱动器号，该实验中写死为 0 即可
+    pub dev: u64,
+    /// inode 文件所在 inode 编号
+    pub ino: u64,
+    /// 文件类型
+    pub mode: StatMode,
+    /// 硬链接数量，初始为1
+    pub nlink: u32,
+    /// 无需考虑，为了兼容性设计
+    pad: [u64; 7],
+}
+
+bitflags! {
+    /// StatMode 定义：
+    pub struct StatMode: u32 {
+        const NULL  = 0;
+        /// directory
+        const DIR   = 0o040000;
+        /// ordinary regular file
+        const FILE  = 0o100000;
+    }
+}
+#[allow(unused)]
+pub fn sys_fstat(fd: i32, st: *mut Stat) -> isize {
+    // need to build a coeection between fd and inode
+    let task = current_task().unwrap();
+    let inner = task.inner_exclusive_access();
+    let pgtbl = &inner.memory_set.page_table;
+    let addr = pgtbl.translate_va((st as *mut u8 as usize).into()).unwrap().0;
+    let addr = addr as *mut u8 as *mut Stat;
+    if inner.fd_table[fd as usize].is_some() {
+        let name = inner.fd_name_map.get(&fd).unwrap();
+        let inode = ROOT_INODE.find(&name).unwrap();
+        unsafe {
+            *addr = Stat{
+                dev: 0,
+                ino: inode.size() as u64,
+                mode:
+                    if inode.is_file() {
+                        StatMode::FILE
+                    }
+                    else {
+                        StatMode::DIR
+                    },
+                nlink: 0,
+                pad: [0; 7],
+            };
+        }
+        trace!(" {:?}", st);
+        return 0;
+    }
+    error!(" fd: [{}] not found!", fd);
     -1
 }

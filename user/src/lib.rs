@@ -53,6 +53,44 @@ bitflags! {
     }
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct Stat {
+    /// 文件所在磁盘驱动器号，该实验中写死为 0 即可
+    pub dev: u64,
+    /// inode 文件所在 inode 编号
+    pub ino: u64,
+    /// 文件类型
+    pub mode: StatMode,
+    /// 硬链接数量，初始为1
+    pub nlink: u32,
+    /// 无需考虑，为了兼容性设计
+    pad: [u64; 7],
+}
+
+impl Stat {
+    pub fn new() -> Stat {
+        Stat{
+            dev: 0,
+            ino: 0,
+            mode: StatMode::NULL,
+            nlink: 0,
+            pad: [0; 7],
+        }
+    }
+}
+
+bitflags! {
+    /// StatMode 定义：
+    pub struct StatMode: u32 {
+        const NULL  = 0;
+        /// directory
+        const DIR   = 0o040000;
+        /// ordinary regular file
+        const FILE  = 0o100000;
+    }
+}
+
 pub fn open(path: &str, flags: OpenFlags) -> isize {
     sys_open(path, flags.bits)
 }
@@ -135,4 +173,8 @@ pub fn linkat(oldfile: *const u8, newfile: *const u8) -> isize {
 
 pub fn unlinkat(path: *const u8) -> isize {
     sys_unlinkat(path)
+}
+
+pub fn fstat(fd: usize, st: *mut Stat) -> isize {
+    sys_fstat(fd, st)
 }
