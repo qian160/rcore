@@ -63,7 +63,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_LS => sys_ls(),
         SYSCALL_SPAWN => sys_spawn(args[0] as *const u8),
         SYSCALL_LINKAT => sys_linkat(args[0] as *const u8, args[1] as *const u8),
-        SYSCALL_UNLINKAT => 0,
+        SYSCALL_UNLINKAT => sys_unlinkat(args[0] as *const u8),
         SYSCALL_FSTAT => 0,
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     };

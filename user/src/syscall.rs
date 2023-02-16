@@ -105,3 +105,8 @@ pub fn sys_spawn(file: *const u8) -> isize {
 pub fn sys_linkat(oldfile: *const u8, newfile: *const u8) -> isize {
     syscall(SYSCALL_LINKAT, [oldfile as usize, newfile as usize, 0])
 }
+
+#[allow(unused)]
+pub fn sys_unlinkat(path: *const u8) -> isize {
+    syscall(SYSCALL_UNLINKAT, [path as usize, 0, 0])
+}

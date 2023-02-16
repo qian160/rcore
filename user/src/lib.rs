@@ -132,3 +132,7 @@ pub fn spawn(file: *const u8) -> isize {
 pub fn linkat(oldfile: *const u8, newfile: *const u8) -> isize {
     sys_linkat(oldfile, newfile)
 }
+
+pub fn unlinkat(path: *const u8) -> isize {
+    sys_unlinkat(path)
+}

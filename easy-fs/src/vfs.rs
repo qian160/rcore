@@ -65,8 +65,9 @@ impl Inode {
                 }
             });
     }
-    /// Find inode under a disk inode by name
-    /// a helper function of find()
+    /// search the dirents under root inode to find a match,
+    /// the dirent tells which inode out file located at.
+    /// the 3rd arg seems to be redundant? its always the root inde since we only have one-level directory tree
     fn find_inode_id(&self, name: &str, disk_inode: &DiskInode) -> Option<u32> {
         // assert it is a directory
         assert!(disk_inode.is_dir());
@@ -124,8 +125,9 @@ impl Inode {
         disk_inode.increase_size(new_size, v, &self.block_device);
     }
     /// Create inode under current inode by name
-    /// 在根目录下创建一个文件，只有根目录的 Inode 会调用
-    /// increase root inode size by some multiple of 
+    /// 在根目录下创建一个文件，只有根目录的 Inode 会调用()
+    /// 1. add a dirent to root inode and increase its size by 32
+    /// 2. initialize the dirent and its corresponding inode
     //pub fn create(&self, name: &str) -> Option<Arc<Inode>> {
     pub fn create(&self, name: &str) -> Option<Inode> {
         let mut fs = self.fs.lock();
@@ -151,9 +153,8 @@ impl Inode {
                 new_inode.init(DiskInodeType::File);
             });
         self.modify_disk_inode(|root_inode| {
+            // bad methods. we can only add dirent at the end of queue
             // append file in the dirent
-            //let file_count = (root_inode.size as usize) / DIRENT_SZ;
-            //let new_size = (file_count + 1) * DIRENT_SZ;
             let old_size = root_inode.size;
             let new_size = old_size + 32;
             // increase size
@@ -161,7 +162,6 @@ impl Inode {
             // write dirent
             let dirent = DirEntry::new(name, new_inode_id);
             root_inode.write_at(
-//                file_count * DIRENT_SZ,
                 old_size as usize,
                 dirent.as_bytes(),
                 &self.block_device,
@@ -228,5 +228,30 @@ impl Inode {
             }
         });
         block_cache_sync_all();
+    }
+    /// remove the specified inode(indexed by name) from fs.
+    /// can only be called by root inode. steps:
+    /// 1. clear the inode block
+    /// 2. remove the dirent
+    pub fn unlink(&self, name: &str) {
+        self.find(name).unwrap().clear();
+        // find the dirent and clear it
+        self.modify_disk_inode(| root |{
+            let n = root.size as usize / DIRENT_SZ;
+            let mut offset = 0;
+            for _ in 0..n {
+                let mut dirent = DirEntry::empty();
+                assert_eq!(
+                    root.read_at(offset, dirent.as_bytes_mut(), &self.block_device),
+                    DIRENT_SZ,
+                );
+                if dirent.name() == name {
+                    root.write_at(offset, &[0; DIRENT_SZ], &self.block_device);
+                    //root.size -= 32;
+                    break;
+                }
+                offset += DIRENT_SZ;
+            }
+        });
     }
 }
